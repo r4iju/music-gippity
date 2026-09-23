@@ -1,0 +1,33 @@
+.hamburger-icon {
+	position: relative;
+	width: 32px;
+	height: 4px;
+	background-color: #fff;
+	transition: all 0.3s ease;
+	&:before,
+	&:after {
+		content: "";
+		position: absolute;
+		width: 100%;
+		height: 100%;
+		background-color: #fff;
+		transition: all 0.3s ease;
+	}
+	&:before {
+		top: -10px;
+	}
+	&:after {
+		top: 10px;
+	}
+}
+
+.hamburger-icon.open {
+	transform: rotate(45deg);
+	&:before {
+		transform: rotate(90deg) translate(0, -10px);
+		opacity: 0;
+	}
+	&:after {
+		transform: rotate(90deg) translate(0, 10px);
+	}
+}

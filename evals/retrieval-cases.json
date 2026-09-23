@@ -1,0 +1,166 @@
+[
+	{
+		"id": "joy-squad",
+		"artist": "Koreless",
+		"title": "Joy Squad",
+		"version": "Agor album recording, Young, 2021",
+		"label": "vocals",
+		"labelReason": "Artist explicitly identifies vocal processing in this exact track, even though it functions as percussion.",
+		"goldSources": ["https://music.apple.com/us/album/agor/1565923183"],
+		"evidence": [
+			{
+				"id": "joy-squad-source",
+				"url": "https://music.apple.com/us/album/agor/1565923183",
+				"text": "In his track-by-track interview for Agor, Koreless explains in the Frozen section that Frozen and Joy Squad turn vocals into short percussive sounds."
+			}
+		]
+	},
+	{
+		"id": "primes",
+		"artist": "Koreless",
+		"title": "Primes",
+		"version": "Agor album recording, Young, 2021",
+		"label": "instrumental",
+		"labelReason": "Artist describes the entire track as made only of sine waves; stronger than absent vocal credits. This remains a source-based label, not an audio audit.",
+		"goldSources": ["https://music.apple.com/us/album/agor/1565923183"],
+		"evidence": [
+			{
+				"id": "primes-source",
+				"url": "https://music.apple.com/us/album/agor/1565923183",
+				"text": "Discussing Primes in his Agor track-by-track interview, Koreless says the track is made only of sine waves."
+			}
+		]
+	},
+	{
+		"id": "haul",
+		"artist": "Christian Löffler",
+		"title": "Haul (feat. Mohna)",
+		"version": "Mare album recording, 2016, 5:15; not Radio Edit",
+		"label": "vocals",
+		"labelReason": "Artist album description explicitly maps Mohna vocals to Haul.",
+		"goldSources": ["https://christianloffler.bandcamp.com/album/mare"],
+		"evidence": [
+			{
+				"id": "haul-source",
+				"url": "https://christianloffler.bandcamp.com/album/mare",
+				"text": "The artist release page lists Haul (feat. Mohna) at 5:15 and names Haul among the four tracks with Mohna vocals."
+			}
+		]
+	},
+	{
+		"id": "lid",
+		"artist": "Christian Löffler",
+		"title": "Lid",
+		"version": "Mare album recording, 2016, 5:10",
+		"label": "vocals",
+		"labelReason": "Artist release description explicitly identifies Löffler singing on Lid; no featured vocalist in title.",
+		"goldSources": ["https://christianloffler.bandcamp.com/album/mare"],
+		"evidence": [
+			{
+				"id": "lid-source",
+				"url": "https://christianloffler.bandcamp.com/album/mare",
+				"text": "The artist description of Mare says Löffler himself sings on Lid, Pacific and Nil; the tracklist lists Lid at 5:10."
+			}
+		]
+	},
+	{
+		"id": "found",
+		"artist": "Rosehip",
+		"title": "Found",
+		"version": "2023 single preceding Odyssey EP",
+		"label": "vocals",
+		"labelReason": "Artist track description explicitly identifies an Alan Watts vocal sample. This supports voice presence; the speaker attribution indicates speech.",
+		"goldSources": ["https://rosehipmusicuk.bandcamp.com/track/found"],
+		"evidence": [
+			{
+				"id": "found-source",
+				"url": "https://rosehipmusicuk.bandcamp.com/track/found",
+				"text": "Rosehip describes Found as the first single from the 2023 Odyssey EP and identifies a vocal sample from philosopher Alan Watts in its arrangement."
+			}
+		]
+	},
+	{
+		"id": "slow-it-down",
+		"artist": "Blackdown",
+		"title": "Slow It Down",
+		"version": "Kinetic EP track; artist page dates track February 2, 2020; artist identity: https://blackdown.bandcamp.com",
+		"label": "vocals",
+		"labelReason": "Artist track page explicitly credits vocal samples. Artist identity must use this Bandcamp account, not another artist with the same name.",
+		"goldSources": ["https://blackdown.bandcamp.com/track/slow-it-down"],
+		"evidence": [
+			{
+				"id": "slow-it-down-source",
+				"url": "https://blackdown.bandcamp.com/track/slow-it-down",
+				"text": "The artist page for Slow It Down says its beat was inspired by Missy Elliot, describes a Loopcloud vocal sample, and credits Loopcloud for vocal samples."
+			}
+		]
+	},
+	{
+		"id": "mania-instrumental",
+		"artist": "The Blake Robinson Synthetic Orchestra",
+		"title": "Mania (Instrumental Version)",
+		"version": "Mania (Friday the 31st Edition), October 31, 2025",
+		"label": "instrumental",
+		"labelReason": "Artist track description explicitly says this is the full track without vocals. The page also contains lyrics, which should not override this exact-version description.",
+		"goldSources": [
+			"https://syntheticorchestra.bandcamp.com/track/mania-instrumental-version"
+		],
+		"evidence": [
+			{
+				"id": "mania-instrumental-source",
+				"url": "https://syntheticorchestra.bandcamp.com/track/mania-instrumental-version",
+				"text": "The artist describes Mania (Instrumental Version) as the full recording with vocals removed. Its page also includes a lyrics section and credits drums, guitars and bass to Blake Robinson."
+			}
+		]
+	},
+	{
+		"id": "better-instrumental",
+		"artist": "Beckett",
+		"title": "Better - (Instrumental Version)",
+		"version": "Vocal Free collection, February 3, 2021, 4:05",
+		"label": "instrumental",
+		"labelReason": "Exact track is explicitly marked instrumental on a collection the artist describes as versions without vocal lines. No separate audio audit.",
+		"goldSources": ["https://projectbeckett.bandcamp.com/album/vocal-free"],
+		"evidence": [
+			{
+				"id": "better-instrumental-source",
+				"url": "https://projectbeckett.bandcamp.com/album/vocal-free",
+				"text": "Beckett lists Better - (Instrumental Version), duration 4:05, on Vocal Free. The artist describes this collection as versions exposing the arrangements without their vocal lines."
+			}
+		]
+	},
+	{
+		"id": "endless-falls",
+		"artist": "Loscil",
+		"title": "Endless Falls",
+		"version": "Endless Falls title track, 2010, 7:55; not The Making of Grief Point",
+		"label": "unknown",
+		"labelReason": "Artist interview places Dan Bejar on a different track. It does not explicitly establish absence of all voices or samples in this title track; unscorable for binary accuracy.",
+		"goldSources": [
+			"https://nomoreworkhorse.com/2021/10/07/interview-with-scott-morgan-loscil-part-2/"
+		],
+		"evidence": [
+			{
+				"id": "endless-falls-source",
+				"url": "https://nomoreworkhorse.com/2021/10/07/interview-with-scott-morgan-loscil-part-2/",
+				"text": "Scott Morgan discusses the album Endless Falls and identifies Dan Bejar as the voice on its final track, The Making of Grief Point."
+			}
+		]
+	},
+	{
+		"id": "nespole",
+		"artist": "Floating Points",
+		"title": "Nespole",
+		"version": "Elaenia original album, November 6, 2015",
+		"label": "unknown",
+		"labelReason": "Label credits singers at album level without mapping them to Nespole. Neither vocal presence nor absence established for this exact track; unscorable for binary accuracy.",
+		"goldSources": ["https://onesheets.luakabop.com/Elaenia-onesheet.pdf"],
+		"evidence": [
+			{
+				"id": "nespole-source",
+				"url": "https://onesheets.luakabop.com/Elaenia-onesheet.pdf",
+				"text": "Luaka Bop lists Nespole on Elaenia and credits album vocals to Rahel Debebe-Dessalegne, Layla Rutherford and Sam Shepherd. The one-sheet does not assign those vocal credits by track."
+			}
+		]
+	}
+]

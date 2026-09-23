@@ -1,0 +1,675 @@
+{
+	"version": "6",
+	"dialect": "sqlite",
+	"id": "b58a608b-80db-4c0e-b9d4-4c710097a7a8",
+	"prevId": "7794d1f2-6048-4546-af02-a34b7edbb181",
+	"tables": {
+		"account": {
+			"name": "account",
+			"columns": {
+				"id": {
+					"name": "id",
+					"type": "integer",
+					"primaryKey": true,
+					"notNull": true,
+					"autoincrement": true
+				},
+				"userId": {
+					"name": "userId",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false
+				},
+				"type": {
+					"name": "type",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false
+				},
+				"provider": {
+					"name": "provider",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false
+				},
+				"providerAccountId": {
+					"name": "providerAccountId",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false
+				},
+				"refresh_token": {
+					"name": "refresh_token",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": false,
+					"autoincrement": false
+				},
+				"access_token": {
+					"name": "access_token",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": false,
+					"autoincrement": false
+				},
+				"expires_at": {
+					"name": "expires_at",
+					"type": "integer",
+					"primaryKey": false,
+					"notNull": false,
+					"autoincrement": false
+				},
+				"token_type": {
+					"name": "token_type",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": false,
+					"autoincrement": false
+				},
+				"scope": {
+					"name": "scope",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": false,
+					"autoincrement": false
+				},
+				"id_token": {
+					"name": "id_token",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": false,
+					"autoincrement": false
+				},
+				"session_state": {
+					"name": "session_state",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": false,
+					"autoincrement": false
+				},
+				"createdAt": {
+					"name": "createdAt",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": false,
+					"autoincrement": false,
+					"default": "CURRENT_TIMESTAMP"
+				},
+				"updatedAt": {
+					"name": "updatedAt",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": false,
+					"autoincrement": false,
+					"default": "CURRENT_TIMESTAMP"
+				}
+			},
+			"indexes": {
+				"account_user_id_idx": {
+					"name": "account_user_id_idx",
+					"columns": ["userId"],
+					"isUnique": false
+				},
+				"account_provider_account_unique": {
+					"name": "account_provider_account_unique",
+					"columns": ["provider", "providerAccountId"],
+					"isUnique": true
+				}
+			},
+			"foreignKeys": {
+				"account_userId_user_id_fk": {
+					"name": "account_userId_user_id_fk",
+					"tableFrom": "account",
+					"tableTo": "user",
+					"columnsFrom": ["userId"],
+					"columnsTo": ["id"],
+					"onDelete": "cascade",
+					"onUpdate": "cascade"
+				}
+			},
+			"compositePrimaryKeys": {},
+			"uniqueConstraints": {},
+			"checkConstraints": {}
+		},
+		"llm_token_usage": {
+			"name": "llm_token_usage",
+			"columns": {
+				"id": {
+					"name": "id",
+					"type": "integer",
+					"primaryKey": true,
+					"notNull": true,
+					"autoincrement": true
+				},
+				"user_id": {
+					"name": "user_id",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false
+				},
+				"engine": {
+					"name": "engine",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false
+				},
+				"input_tokens": {
+					"name": "input_tokens",
+					"type": "integer",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false
+				},
+				"output_tokens": {
+					"name": "output_tokens",
+					"type": "integer",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false
+				},
+				"total_tokens": {
+					"name": "total_tokens",
+					"type": "integer",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false
+				},
+				"created_at": {
+					"name": "created_at",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": false,
+					"autoincrement": false,
+					"default": "CURRENT_TIMESTAMP"
+				}
+			},
+			"indexes": {},
+			"foreignKeys": {
+				"llm_token_usage_user_id_user_id_fk": {
+					"name": "llm_token_usage_user_id_user_id_fk",
+					"tableFrom": "llm_token_usage",
+					"tableTo": "user",
+					"columnsFrom": ["user_id"],
+					"columnsTo": ["id"],
+					"onDelete": "no action",
+					"onUpdate": "no action"
+				}
+			},
+			"compositePrimaryKeys": {},
+			"uniqueConstraints": {},
+			"checkConstraints": {}
+		},
+		"log": {
+			"name": "log",
+			"columns": {
+				"id": {
+					"name": "id",
+					"type": "text",
+					"primaryKey": true,
+					"notNull": true,
+					"autoincrement": false
+				},
+				"created_at": {
+					"name": "created_at",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": false,
+					"autoincrement": false,
+					"default": "CURRENT_TIMESTAMP"
+				},
+				"level": {
+					"name": "level",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false
+				},
+				"message": {
+					"name": "message",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false
+				},
+				"meta": {
+					"name": "meta",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": false,
+					"autoincrement": false
+				}
+			},
+			"indexes": {},
+			"foreignKeys": {},
+			"compositePrimaryKeys": {},
+			"uniqueConstraints": {},
+			"checkConstraints": {}
+		},
+		"playlist": {
+			"name": "playlist",
+			"columns": {
+				"id": {
+					"name": "id",
+					"type": "text",
+					"primaryKey": true,
+					"notNull": true,
+					"autoincrement": false
+				},
+				"user_id": {
+					"name": "user_id",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false
+				},
+				"prompt": {
+					"name": "prompt",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false
+				},
+				"length": {
+					"name": "length",
+					"type": "integer",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false
+				},
+				"name": {
+					"name": "name",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false
+				},
+				"description": {
+					"name": "description",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false
+				},
+				"error": {
+					"name": "error",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false,
+					"default": "''"
+				},
+				"is_exported": {
+					"name": "is_exported",
+					"type": "integer",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false,
+					"default": false
+				},
+				"selected_engine": {
+					"name": "selected_engine",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false,
+					"default": "'chatgpt'"
+				},
+				"selected_mood": {
+					"name": "selected_mood",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false,
+					"default": "''"
+				},
+				"selected_track_count": {
+					"name": "selected_track_count",
+					"type": "integer",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false,
+					"default": 10
+				},
+				"selected_artists": {
+					"name": "selected_artists",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false,
+					"default": "'[]'"
+				},
+				"ignored_artists": {
+					"name": "ignored_artists",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false,
+					"default": "'[]'"
+				},
+				"recommendations": {
+					"name": "recommendations",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false,
+					"default": "'[]'"
+				},
+				"selected_genres": {
+					"name": "selected_genres",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false,
+					"default": "'[]'"
+				},
+				"intent": {
+					"name": "intent",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": false,
+					"autoincrement": false
+				},
+				"purpose": {
+					"name": "purpose",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": false,
+					"autoincrement": false
+				}
+			},
+			"indexes": {
+				"playlist_user_id_idx": {
+					"name": "playlist_user_id_idx",
+					"columns": ["user_id"],
+					"isUnique": false
+				}
+			},
+			"foreignKeys": {
+				"playlist_user_id_user_id_fk": {
+					"name": "playlist_user_id_user_id_fk",
+					"tableFrom": "playlist",
+					"tableTo": "user",
+					"columnsFrom": ["user_id"],
+					"columnsTo": ["id"],
+					"onDelete": "no action",
+					"onUpdate": "no action"
+				}
+			},
+			"compositePrimaryKeys": {},
+			"uniqueConstraints": {},
+			"checkConstraints": {}
+		},
+		"session": {
+			"name": "session",
+			"columns": {
+				"id": {
+					"name": "id",
+					"type": "text",
+					"primaryKey": true,
+					"notNull": true,
+					"autoincrement": false
+				},
+				"sessionToken": {
+					"name": "sessionToken",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false
+				},
+				"userId": {
+					"name": "userId",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false
+				},
+				"expires": {
+					"name": "expires",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false
+				}
+			},
+			"indexes": {
+				"session_sessionToken_unique": {
+					"name": "session_sessionToken_unique",
+					"columns": ["sessionToken"],
+					"isUnique": true
+				},
+				"session_user_id_idx": {
+					"name": "session_user_id_idx",
+					"columns": ["userId"],
+					"isUnique": false
+				}
+			},
+			"foreignKeys": {
+				"session_userId_user_id_fk": {
+					"name": "session_userId_user_id_fk",
+					"tableFrom": "session",
+					"tableTo": "user",
+					"columnsFrom": ["userId"],
+					"columnsTo": ["id"],
+					"onDelete": "no action",
+					"onUpdate": "no action"
+				}
+			},
+			"compositePrimaryKeys": {},
+			"uniqueConstraints": {},
+			"checkConstraints": {}
+		},
+		"song": {
+			"name": "song",
+			"columns": {
+				"id": {
+					"name": "id",
+					"type": "text",
+					"primaryKey": true,
+					"notNull": true,
+					"autoincrement": false
+				},
+				"playlist_id": {
+					"name": "playlist_id",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false
+				},
+				"order": {
+					"name": "order",
+					"type": "integer",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false
+				},
+				"title": {
+					"name": "title",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false
+				},
+				"artist": {
+					"name": "artist",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false
+				},
+				"song_id": {
+					"name": "song_id",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": false,
+					"autoincrement": false
+				},
+				"preview_url": {
+					"name": "preview_url",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": false,
+					"autoincrement": false
+				},
+				"album_title": {
+					"name": "album_title",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": false,
+					"autoincrement": false
+				},
+				"album_image": {
+					"name": "album_image",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": false,
+					"autoincrement": false
+				},
+				"album_year": {
+					"name": "album_year",
+					"type": "integer",
+					"primaryKey": false,
+					"notNull": false,
+					"autoincrement": false
+				}
+			},
+			"indexes": {
+				"song_playlist_id_idx": {
+					"name": "song_playlist_id_idx",
+					"columns": ["playlist_id"],
+					"isUnique": false
+				}
+			},
+			"foreignKeys": {
+				"song_playlist_id_playlist_id_fk": {
+					"name": "song_playlist_id_playlist_id_fk",
+					"tableFrom": "song",
+					"tableTo": "playlist",
+					"columnsFrom": ["playlist_id"],
+					"columnsTo": ["id"],
+					"onDelete": "no action",
+					"onUpdate": "no action"
+				}
+			},
+			"compositePrimaryKeys": {},
+			"uniqueConstraints": {},
+			"checkConstraints": {}
+		},
+		"user": {
+			"name": "user",
+			"columns": {
+				"id": {
+					"name": "id",
+					"type": "text",
+					"primaryKey": true,
+					"notNull": true,
+					"autoincrement": false
+				},
+				"name": {
+					"name": "name",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": false,
+					"autoincrement": false
+				},
+				"email": {
+					"name": "email",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": false,
+					"autoincrement": false
+				},
+				"emailVerified": {
+					"name": "emailVerified",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": false,
+					"autoincrement": false
+				},
+				"image": {
+					"name": "image",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": false,
+					"autoincrement": false
+				},
+				"role": {
+					"name": "role",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false,
+					"default": "'USER'"
+				}
+			},
+			"indexes": {
+				"user_email_unique": {
+					"name": "user_email_unique",
+					"columns": ["email"],
+					"isUnique": true
+				}
+			},
+			"foreignKeys": {},
+			"compositePrimaryKeys": {},
+			"uniqueConstraints": {},
+			"checkConstraints": {}
+		},
+		"verification_token": {
+			"name": "verification_token",
+			"columns": {
+				"identifier": {
+					"name": "identifier",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false
+				},
+				"token": {
+					"name": "token",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false
+				},
+				"expires": {
+					"name": "expires",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false
+				}
+			},
+			"indexes": {
+				"verification_token_token_unique": {
+					"name": "verification_token_token_unique",
+					"columns": ["token"],
+					"isUnique": true
+				},
+				"verification_token_identifier_token_unique": {
+					"name": "verification_token_identifier_token_unique",
+					"columns": ["identifier", "token"],
+					"isUnique": true
+				}
+			},
+			"foreignKeys": {},
+			"compositePrimaryKeys": {},
+			"uniqueConstraints": {},
+			"checkConstraints": {}
+		}
+	},
+	"views": {},
+	"enums": {},
+	"_meta": {
+		"schemas": {},
+		"tables": {},
+		"columns": {}
+	},
+	"internal": {
+		"indexes": {}
+	}
+}

@@ -1,0 +1,1 @@
+ALTER TABLE `playlist` ADD `spotify_playlist_id` text;

@@ -1,0 +1,47 @@
+{
+	"compilerOptions": {
+		"target": "es2022",
+		"lib": ["dom", "dom.iterable", "esnext"],
+		"allowJs": true,
+		"checkJs": true,
+		"skipLibCheck": true,
+		"strict": true,
+		"forceConsistentCasingInFileNames": true,
+		"noEmit": true,
+		"strictNullChecks": true,
+		"esModuleInterop": true,
+		"noImplicitReturns": true,
+		"module": "esnext",
+		"moduleResolution": "bundler",
+		"noImplicitAny": true,
+		"noUnusedLocals": true,
+		"resolveJsonModule": true,
+		"isolatedModules": true,
+		"jsx": "react-jsx",
+		"incremental": true,
+		"noUncheckedIndexedAccess": true,
+		"types": ["node", "bun"],
+		"outDir": "dist",
+		"paths": {
+			"~/*": ["./src/*"]
+		},
+		"plugins": [
+			{
+				"name": "next"
+			}
+		]
+	},
+	"include": [
+		".eslintrc.cjs",
+		"next-env.d.ts",
+		"**/*.ts",
+		"**/*.tsx",
+		"**/*.cjs",
+		"**/*.mjs",
+		"src/env.mjs",
+		"src/types/**/*.ts",
+		".next/types/**/*.ts",
+		".next/dev/types/**/*.ts"
+	],
+	"exclude": ["node_modules", "dist"]
+}

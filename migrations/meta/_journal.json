@@ -1,0 +1,55 @@
+{
+	"version": "7",
+	"dialect": "sqlite",
+	"entries": [
+		{
+			"idx": 0,
+			"version": "6",
+			"when": 1743216796393,
+			"tag": "0000_clean_ink",
+			"breakpoints": true
+		},
+		{
+			"idx": 1,
+			"version": "6",
+			"when": 1789711550037,
+			"tag": "0001_even_mandarin",
+			"breakpoints": true
+		},
+		{
+			"idx": 2,
+			"version": "6",
+			"when": 1789737235559,
+			"tag": "0002_charming_master_mold",
+			"breakpoints": true
+		},
+		{
+			"idx": 3,
+			"version": "6",
+			"when": 1790037560664,
+			"tag": "0003_durable_generations",
+			"breakpoints": true
+		},
+		{
+			"idx": 4,
+			"version": "6",
+			"when": 1790043259353,
+			"tag": "0004_checkpointed_playlists",
+			"breakpoints": true
+		},
+		{
+			"idx": 5,
+			"version": "6",
+			"when": 1790044200645,
+			"tag": "0005_generation_checkpoints",
+			"breakpoints": true
+		},
+		{
+			"idx": 6,
+			"version": "6",
+			"when": 1790130186849,
+			"tag": "0006_wise_blazing_skull",
+			"breakpoints": true
+		}
+	]
+}

@@ -1,0 +1,11 @@
+{
+	"$schema": "https://openapi.vercel.sh/vercel.json",
+	"functions": {
+		"src/app/api/playlist-generations/**/stream/route.ts": {
+			"supportsCancellation": true
+		}
+	},
+	"crons": [
+		{ "path": "/api/cron/playlist-generations", "schedule": "* * * * *" }
+	]
+}
