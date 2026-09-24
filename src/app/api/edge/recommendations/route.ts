@@ -36,9 +36,11 @@ function createRecommendationPrompt({
 	z.infer<typeof RecommendationSchema>,
 	"engine" | "creativity"
 >): string {
-	return `Based on the mood "${mood}" and the genres ${genres.join(
-		", ",
-	)}, please recommend exactly ${expectedCount} new artists that have not been previously selected.
+	const genreClause =
+		genres.length > 0
+			? ` and the genres ${genres.join(", ")}`
+			: " in any genre";
+	return `Based on the mood "${mood}"${genreClause}, please recommend exactly ${expectedCount} new artists that have not been previously selected.
 Do use the following selected artists as a reference for similarity: ${selectedArtists.join(", ") || "none"}.
 Exclude the following rejected artists: ${rejectedArtists.join(", ") || "none"}.
 Provide the response in the following JSON format:
