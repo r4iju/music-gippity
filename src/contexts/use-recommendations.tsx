@@ -71,10 +71,9 @@ export const RecommendationsProvider: React.FC<{
 	}, [selectedArtists]);
 
 	const fetchRecommendations = useCallback(async () => {
-		if (!selectedMood || selectedGenres.length === 0) {
+		if (!selectedMood) {
 			console.error("useRecommendations: missing required parameters", {
 				selectedMood,
-				selectedGenres,
 			});
 			return;
 		}

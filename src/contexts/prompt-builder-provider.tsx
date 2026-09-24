@@ -64,9 +64,10 @@ export const PromptBuilderProvider: React.FC<{ children: React.ReactNode }> = ({
 
 	const buildPrompt = () =>
 		(() => {
-			let prompt = `Create a playlist for a ${selectedMood} mood featuring ${selectedGenres.join(
-				", ",
-			)} genres`;
+			let prompt = `Create a playlist for a ${selectedMood} mood`;
+			if (selectedGenres.length > 0) {
+				prompt += ` featuring ${selectedGenres.join(", ")} genres`;
+			}
 			if (selectedArtists.length > 0) {
 				prompt += `, highlighting artists: ${selectedArtists.join(", ")}`;
 			}
