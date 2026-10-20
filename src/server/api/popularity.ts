@@ -5,25 +5,25 @@ import type { Intent } from "~/lib/intent";
 import type { PopularityBudget, PopularityEvent } from "~/lib/playlist-stream";
 import {
 	budgetGap,
-	isMainstream,
 	MAINSTREAM_LISTENERS,
+	mainstreamStatus,
 	summarizePopularity,
 } from "~/lib/popularity";
 import { takeGrounded } from "~/server/api/repair";
 
 type Resolved = Song & { songId: string };
 
-/** Whether evidence puts the song above the threshold; unknown is not. */
+/** Which side of the threshold evidence puts the song, or unknown. */
 export const mainstreamBy = (evidence: Evidence | null | undefined) =>
-	isMainstream(evidence?.listeners ?? null);
+	mainstreamStatus(evidence?.listeners ?? null);
 
 /**
  * Swap picks past the popularity budget for pool recordings on the other
  * side of the threshold that pass the caps, the hard rules and `accepts`.
  * Past a ceiling the earliest mainstream picks stay; under a floor the
- * picks least heard for their source go first, unknown counts before any.
- * A pick the pool cannot replace stays, and the budget then reads as
- * breached.
+ * picks least heard for their source go first. A recording no source
+ * counts is on neither side: it is never evicted and never taken. A pick
+ * the pool cannot replace stays, and the budget then reads as breached.
  */
 export async function enforcePopularityBudget<S extends Song>({
 	budget,
@@ -56,7 +56,7 @@ export async function enforcePopularityBudget<S extends Song>({
 			),
 		),
 	);
-	const mainstream = (song: Song) =>
+	const status = (song: Song) =>
 		mainstreamBy(song.songId ? evidence.get(song.songId) : null);
 	// Sources count on different scales, so a pick is ranked by how near
 	// it comes to its own source's threshold.
@@ -67,14 +67,16 @@ export async function enforcePopularityBudget<S extends Song>({
 			: 0;
 	};
 
-	let count = resolved.filter(mainstream).length;
+	let count = resolved.filter((song) => status(song) === "mainstream").length;
 	const over = budget.maxMainstream !== null && count > budget.maxMainstream;
 	const under = budget.minMainstream !== null && count < budget.minMainstream;
 	if (!over && !under) return [];
-	// Past a ceiling a mainstream pick makes way for one that is not; under
-	// a floor it is the other way round.
+	// Past a ceiling a mainstream pick makes way for one counted below the
+	// threshold; under a floor it is the other way round.
+	const leaving = over ? "mainstream" : "not-mainstream";
+	const arriving = over ? "not-mainstream" : "mainstream";
 	const evict = resolved
-		.filter((song) => mainstream(song) === over)
+		.filter((song) => status(song) === leaving)
 		.sort((a, b) =>
 			over ? a.order - b.order : nearness(a) - nearness(b) || a.order - b.order,
 		);
@@ -89,7 +91,7 @@ export async function enforcePopularityBudget<S extends Song>({
 			caps,
 			intent,
 			evidenceFor,
-			(candidate) => mainstream(candidate) === under && accepts(candidate),
+			(candidate) => status(candidate) === arriving && accepts(candidate),
 		);
 		if (!replacement) {
 			caps.claim(song);

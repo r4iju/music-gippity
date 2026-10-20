@@ -31,4 +31,13 @@ Publication runs after commit and is coalesced, failure-isolated and bounded to 
 4. Merge and verify the Vercel production deployment's Git SHA and Ready state. Check authenticated ownership boundaries, unauthenticated 401s, cron 200 and structured logs. Keep existing `CRON_SECRET`, Turso, Spotify and model credentials; no new paid provider is introduced.
 5. Roll back code only if needed; never drop the new tables/checkpoints. A previous build cannot read new playlist URLs, so rollback is temporary service degradation for those links, not a data rollback. Preserve the deployment that owns in-flight Workflow runs and its unchanged step identities; never redirect ambiguous paid attempts into a fresh run. Prefer a forward fix that retains the new read/cancel/recovery interface.
 
+### Dropping `song.preview_url` (0007)
+
+`0007_drop_song_preview_url.sql` is not additive: the build deployed before it still selects and inserts `song.preview_url`, so applying it first breaks that build's saves and reads. Production has no migration ledger, so apply it by hand, after the code:
+
+1. Deploy the build that no longer reads or writes `preview_url` and verify it is Ready.
+2. Let durable generations on the old build drain: wait until `SELECT COUNT(*) FROM generation_run WHERE finished_at IS NULL AND created_at < <new deploy time in ms>;` returns 0, since those runs keep executing the old build's steps.
+3. Apply only `0007` (`ALTER TABLE song DROP COLUMN preview_url;`), and no other migration, then verify `SELECT COUNT(*) FROM pragma_table_info('song') WHERE name = 'preview_url';` returns 0 and the `song` row count is unchanged.
+4. Rollback after 0007 means redeploying the new build, not the old one. To run an older build, first re-add the nullable column (`ALTER TABLE song ADD COLUMN preview_url text;`).
+
 Diagnostics use `component: playlist-generation` with create-acknowledged, dispatch/deferred, stage-reservation, checkpoint-reused-after-ack-loss, paid-outcome-ambiguous, committed and cancel-requested events. Creation joins playlist/generation identifiers; stage events include the Workflow owner and attempt. Browser reconnect diagnostics contain only playlist ID, revision and cursor. Provider request logging omits full prompts and error response bodies. Checkpoint/product contents remain private application data, not diagnostic payloads.

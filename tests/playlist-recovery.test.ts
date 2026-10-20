@@ -6,6 +6,7 @@ import {
 	restoreDraft,
 	startGeneration,
 } from "~/lib/playlist-generation";
+import { PlaylistLineSchema } from "~/lib/playlist-stream";
 
 const request = {
 	prompt: "Pop for a heavy workout",
@@ -48,6 +49,53 @@ test("reload preserves partial tracks and request but never resurrects loading",
 		).generation.status,
 	).toBe("interrupted");
 	expect(restoreDraft("{broken")).toEqual(emptyDraft());
+});
+
+test("a candidates line that widened the scene labels the draft's chip; one that did not leaves none", () => {
+	const candidates = (widening?: Record<string, unknown>) =>
+		PlaylistLineSchema.parse({
+			kind: "candidates",
+			engine: "chatgpt",
+			model: "fake",
+			status: "ok",
+			systemPrompt: "",
+			userPrompt: "",
+			raw: "",
+			totalMs: 0,
+			musicbrainz: [],
+			lastfm: [],
+			excluded: 0,
+			known: 0,
+			pool: { tag: 1, label: 0, chart: 0 },
+			artists: [],
+			tracks: [],
+			popularity: { budget: null, counted: 0, mainstream: 0 },
+			...(widening ? { widening } : {}),
+		});
+	const widening = (label: string | null) => ({
+		status: "ok",
+		reason: "",
+		userPrompt: "",
+		raw: "",
+		plan: { tags: ["electronic"], area: null, genres: [], era: null },
+		musicbrainz: [],
+		lastfm: [],
+		pool: { tag: label ? 1 : 0, label: 0, chart: 0 },
+		offered: label ? 1 : 0,
+		label,
+	});
+	const draft = startGeneration(emptyDraft(), request, "run");
+	const widened = applyGenerationLine(
+		draft,
+		"run",
+		candidates(widening("Widened to electronic")),
+	);
+	expect(widened.widened).toBe("Widened to electronic");
+	expect(restoreDraft(JSON.stringify(widened)).widened).toBe(
+		"Widened to electronic",
+	);
+	for (const line of [candidates(), candidates(widening(null))])
+		expect(applyGenerationLine(draft, "run", line).widened).toBeUndefined();
 });
 
 test("late events from replaced requests cannot corrupt the current draft", () => {

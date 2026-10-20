@@ -1,12 +1,12 @@
 import { z } from "zod";
-import { CREATIVITY } from "~/lib/creativity";
 import { ENGINES, type EngineId } from "~/lib/engines";
-import { PURPOSE } from "~/lib/purpose";
 import { collectEngineText, runEngine } from "~/server/api/engines";
 import {
+	creativityInstruction,
 	extractFirstJson,
 	parseChatGPTResponse,
 	parseGeminiResponse,
+	purposeInstruction,
 } from "~/server/api/engines/common";
 import { SHARED_PLAYLIST_CRITERIA } from "./cases";
 import type { RunResult } from "./runner";
@@ -59,10 +59,15 @@ export async function judgePlaylist(
 	engine: EngineId,
 ): Promise<Judgment> {
 	const started = performance.now();
+	// The curator's own instructions, so a classics request is judged as one.
+	const classics = Boolean(result.intent?.classics);
 	const userPrompt = JSON.stringify({
 		brief: result.brief,
-		creativityInstruction: CREATIVITY[result.generation.creativity].instruction,
-		purposeInstruction: PURPOSE[result.generation.purpose].instruction,
+		creativityInstruction: creativityInstruction(
+			result.generation.creativity,
+			classics,
+		),
+		purposeInstruction: purposeInstruction(result.generation.purpose, classics),
 		trackCriteria: result.case.trackCriteria,
 		playlistCriteria: [
 			...result.case.playlistCriteria,

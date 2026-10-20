@@ -29,7 +29,6 @@ async function enrichSongWithSpotify(
 		return {
 			...base,
 			songId: null,
-			previewUrl: null,
 			albumImage: null,
 			albumTitle: null,
 			albumYear: null,
@@ -56,6 +55,7 @@ export async function POST(req: Request) {
 				currentSongs: data.currentSongs,
 				avoidedSongs: data.avoidedSongs,
 				purpose: data.purpose,
+				classics: Boolean(data.intent?.classics),
 			},
 			data.creativity,
 		);

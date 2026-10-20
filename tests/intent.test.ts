@@ -55,6 +55,90 @@ describe("groundIntent", () => {
 		expect(invented.album).toBeNull();
 	});
 
+	test("a classics request keeps its quote in the brief's spelling and is dropped when the brief never says it", () => {
+		const brief = "The Best 80s Disco Hits for a kitchen party";
+		const asked = groundIntent(
+			ReadIntentSchema.parse({ classics: { quote: "best 80s disco hits" } }),
+			brief,
+		);
+		expect(asked.classics).toEqual({ quote: "Best 80s Disco Hits" });
+		const invented = groundIntent(
+			ReadIntentSchema.parse({ classics: { quote: "greatest anthems" } }),
+			brief,
+		);
+		expect(invented.classics).toBeNull();
+		expect(groundIntent(ReadIntentSchema.parse({}), brief).classics).toBeNull();
+	});
+
+	test("a classics quote that only names a genre or era is dropped even though the brief says it", () => {
+		const read = (quote: string, brief: string) =>
+			groundIntent(ReadIntentSchema.parse({ classics: { quote } }), brief)
+				.classics;
+		expect(read("80s disco", "80s disco for a party")).toBeNull();
+		expect(read("chill house", "Some chill house for Sunday")).toBeNull();
+		for (const [quote, brief] of [
+			["greatest hits", "Disco greatest hits for a party"],
+			["the classics", "Give me the classics of Italo"],
+			["essential", "Essential Detroit techno"],
+			["Anthems", "Big room Anthems"],
+			["best of", "A best of britpop"],
+			["all-time", "All-time soul favourites"],
+			["timeless", "Timeless jazz standards"],
+			["canonical", "The canonical post-punk records"],
+			["los grandes clásicos", "Los grandes clásicos de la salsa"],
+			["éxitos", "Éxitos de los 90 en español"],
+			["grands classiques", "Les grands classiques de la chanson"],
+			["tubes", "Les tubes des années 80"],
+		] as const)
+			expect(read(quote, brief)).not.toBeNull();
+	});
+
+	test("classics wording is recognised in its grammatical forms in English, Spanish, French and German", () => {
+		const read = (quote: string) =>
+			groundIntent(ReadIntentSchema.parse({ classics: { quote } }), quote)
+				.classics;
+		for (const quote of [
+			"well-known disco songs",
+			"famous funk tracks",
+			"popular reggaeton",
+			"iconic 90s rave",
+			"the biggest Italo records",
+			"best-known soul songs",
+			"songs everyone knows",
+			"Motown greatest hits",
+			"the most played house tracks",
+			"jazz standards",
+			"the post-punk canon",
+			"Las canciones clásicas de la salsa",
+			"canciones clasicas de cumbia",
+			"exitos de los 80",
+			"los mejores boleros",
+			"las más famosas del flamenco",
+			"los mas famosos del rock en español",
+			"Les plus grands succès du disco",
+			"les succes de la chanson",
+			"Klassiker des Krautrock",
+			"die größten Hits der 80er",
+		])
+			expect(read(quote)).not.toBeNull();
+	});
+
+	test("genre names and look-alike words are not classics wording", () => {
+		const read = (quote: string) =>
+			groundIntent(ReadIntentSchema.parse({ classics: { quote } }), quote)
+				.classics;
+		for (const quote of [
+			"80s disco",
+			"classic rock",
+			"classic house for a late night",
+			"Klassik zum Entspannen",
+			"Sommer Hitze techno",
+			"a standard tuning drone",
+			"famously weird krautrock",
+		])
+			expect(read(quote)).toBeNull();
+	});
+
 	test("a reversed era is put in order", () => {
 		const intent = groundIntent(
 			ReadIntentSchema.parse({ era: { start: 1999, end: 1990 } }),

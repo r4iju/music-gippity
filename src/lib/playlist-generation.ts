@@ -50,6 +50,8 @@ const StoredDraft = z.object({
 	}).optional(),
 	intent: IntentSchema.nullable().optional(),
 	purpose: z.enum(PURPOSES).optional(),
+	/** The chip label of a widened lookup round that offered candidates. */
+	widened: z.string().optional(),
 	request: PlaylistFormSchema.optional(),
 	generation: GenerationSchema.optional(),
 	remote: z
@@ -159,6 +161,10 @@ export function applyGenerationLine(
 			return { ...draft, description: line.description };
 		case "intent":
 			return { ...draft, intent: line.intent, purpose: line.purpose };
+		case "candidates":
+			return line.widening?.label
+				? { ...draft, widened: line.widening.label }
+				: draft;
 		case "song": {
 			const index = draft.songs.findIndex((song) => song.id === line.id);
 			const songs = [...draft.songs];

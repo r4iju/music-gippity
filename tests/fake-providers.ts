@@ -21,9 +21,10 @@ export interface FakeProviders {
 	intent: (brief: string) => Response;
 	/**
 	 * Receives the brief and returns the scene plan text, streamed in the
-	 * engine's wire format; by default the plan names no tags or labels.
+	 * engine's wire format; by default the plan names no tags or labels. A
+	 * widened plan request also receives the original plan and the reason.
 	 */
-	scene: (brief: string) => string;
+	scene: (brief: string, widen?: WidenRequest) => string;
 	/** Receives the decoded search query, e.g. `artist:X track:Y` or `X Y`. */
 	spotify: (query: string) => Response | Promise<Response>;
 	/** Saved tracks, GET /v1/me/tracks, by page offset. */
@@ -43,6 +44,12 @@ export interface FakeProviders {
 	deezer: (isrc: string) => Response | Promise<Response>;
 	lastfm: (params: URLSearchParams) => Response | Promise<Response>;
 	listenbrainz: (mbids: string[]) => Response | Promise<Response>;
+}
+
+/** What a widened scene-plan request adds to the plan request. */
+export interface WidenRequest {
+	plan: { tags: string[]; area: string | null; labels: string[] };
+	reason: string;
 }
 
 const JSON_HEADERS = { "Content-Type": "application/json" };
@@ -122,12 +129,14 @@ export function deezerTrack({
 	bpm = 120,
 	gain = -7.5,
 	titleVersion = "",
+	rank = 1000,
 }: {
 	bpm?: number;
 	gain?: number;
 	titleVersion?: string;
+	rank?: number;
 } = {}) {
-	return json({ id: 1, bpm, gain, title_version: titleVersion });
+	return json({ id: 1, bpm, gain, title_version: titleVersion, rank });
 }
 
 /** A Last.fm track.getInfo answer; Last.fm sends counts as strings. */
@@ -327,6 +336,8 @@ export interface FakeTrack {
 	releaseDate?: string;
 	isrc?: string | null;
 	albumId?: string;
+	/** Spotify's `is_playable` for the searched market; absent when unset. */
+	playable?: boolean;
 }
 
 /** Several candidates for one query, in the subset of Spotify's shape the app reads. */
@@ -336,7 +347,7 @@ export function spotifyTracks(items: FakeTrack[]): Response {
 			items: items.map((item) => ({
 				id: item.id,
 				name: item.name,
-				preview_url: null,
+				...(item.playable === undefined ? {} : { is_playable: item.playable }),
 				artists: [item.artist, ...(item.featuring ?? [])].map((name) => ({
 					name,
 				})),
@@ -439,6 +450,14 @@ export function installFakeFetch(
 		listenbrainz: overrides.listenbrainz ?? notFound,
 	};
 
+	const scenePlan = (prompt: string) => {
+		const request = JSON.parse(prompt) as {
+			brief: string;
+			widen?: WidenRequest;
+		};
+		return fake.scene(request.brief, request.widen);
+	};
+
 	const respond = async (input: RequestInfo | URL, init?: RequestInit) => {
 		const url = typeof input === "string" ? input : input.toString();
 		const headers = Object.fromEntries(new Headers(init?.headers).entries());
@@ -455,7 +474,7 @@ export function installFakeFetch(
 			}
 			if (prompt.startsWith(PLAN_TASK)) {
 				fake.scenePlans.push({ url, headers, body });
-				return geminiStream(fake.scene(JSON.parse(prompt).brief as string));
+				return geminiStream(scenePlan(prompt));
 			}
 			fake.requests.push({ url, headers, body });
 			return fake.gemini(prompt);
@@ -465,7 +484,7 @@ export function installFakeFetch(
 			const prompt = messages.at(-1)?.content ?? "";
 			if (prompt.startsWith(PLAN_TASK)) {
 				fake.scenePlans.push({ url, headers, body });
-				return openaiStream(fake.scene(JSON.parse(prompt).brief as string));
+				return openaiStream(scenePlan(prompt));
 			}
 			fake.requests.push({ url, headers, body });
 			return fake.openai(prompt);

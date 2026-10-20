@@ -1,5 +1,6 @@
 import type { Creativity } from "./creativity";
 import type { Evidence, ListenerSource } from "./evidence";
+import type { Intent } from "./intent";
 import type { PopularityBudget } from "./playlist-stream";
 import type { Purpose } from "./purpose";
 
@@ -10,33 +11,54 @@ import type { Purpose } from "./purpose";
  * their scene (Padam Padam 383k, Nightcall 1.25M) and scene staples
  * (Brokendate 244k, Roller Mobster 233k), near the 92nd percentile of
  * run 7's eval picks. ListenBrainz's, the fallback, sits near the 75th
- * percentile of the picks it counted (#51).
+ * percentile of the picks it counted (#51). Deezer's is a track rank, not
+ * a count; asked last, it sits near the 90th percentile of the 533 saved
+ * eval picks both Deezer and Last.fm counted, where it agrees with
+ * Last.fm's split on 91% of them and errs about as often either way:
+ * Flashback (rank 501k, Last.fm 271k) and Inspector Norse (538k, 265k)
+ * above, Future Club (482k, 203k) and Looped (480k, 194k) below. A higher
+ * rank agrees slightly more (92% at 550k) by missing half of Last.fm's
+ * mainstream (#10).
  */
 export const MAINSTREAM_LISTENERS: Record<ListenerSource, number> = {
 	lastfm: 250000,
 	listenbrainz: 5000,
+	deezer: 500000,
 };
 
-/** A recording no source counts is treated as not mainstream. */
-export const isMainstream = (listeners: Evidence["listeners"]): boolean =>
-	listeners !== null &&
-	listeners.value >= MAINSTREAM_LISTENERS[listeners.source];
+/**
+ * Which side of its source's threshold a recording falls on. A recording
+ * no source counts is unknown, not low: it counts toward neither side of a
+ * popularity budget.
+ */
+export type MainstreamStatus = "mainstream" | "not-mainstream" | "unknown";
+
+export const mainstreamStatus = (
+	listeners: Evidence["listeners"],
+): MainstreamStatus => {
+	if (listeners === null) return "unknown";
+	return listeners.value >= MAINSTREAM_LISTENERS[listeners.source]
+		? "mainstream"
+		: "not-mainstream";
+};
 
 /**
  * How many mainstream recordings the playlist may hold. Creativity sets a
  * ceiling: none for Safe, room for a third of the picks below the
  * threshold for Balanced, three for Adventurous. A room of other people
  * needs to recognise the set, so purpose Room sets a floor of half the
- * picks instead.
+ * picks instead. A classics request asks for well-known recordings, so it
+ * lifts the ceiling at every creativity; Room's floor still holds.
  */
 export function popularityBudget(
 	creativity: Creativity,
 	purpose: Purpose,
 	trackCount: number,
+	intent: Pick<Intent, "classics"> | null,
 ): PopularityBudget | null {
 	if (purpose === "room")
 		return { maxMainstream: null, minMainstream: Math.ceil(trackCount / 2) };
-	if (creativity === "safe") return null;
+	if (creativity === "safe" || intent?.classics) return null;
 	return {
 		maxMainstream:
 			creativity === "balanced" ? trackCount - Math.ceil(trackCount / 3) : 3,
@@ -56,11 +78,13 @@ export interface PopularitySummary {
 	recordings: number;
 	/** Median listener count per source, over the recordings it counted. */
 	median: Record<ListenerSource, number | null>;
+	/** How many recordings each source counted. */
+	counted: Record<ListenerSource, number>;
 	mainstream: number;
 	unknown: number;
 }
 
-const median = (values: number[]): number | null => {
+export const median = (values: number[]): number | null => {
 	if (!values.length) return null;
 	const sorted = [...values].sort((a, b) => a - b);
 	const mid = Math.floor(sorted.length / 2);
@@ -78,10 +102,17 @@ export function summarizePopularity(
 	return {
 		recordings: counts.length,
 		median: {
-			listenbrainz: median(from("listenbrainz")),
 			lastfm: median(from("lastfm")),
+			listenbrainz: median(from("listenbrainz")),
+			deezer: median(from("deezer")),
 		},
-		mainstream: counts.filter(isMainstream).length,
+		counted: {
+			lastfm: from("lastfm").length,
+			listenbrainz: from("listenbrainz").length,
+			deezer: from("deezer").length,
+		},
+		mainstream: counts.filter((c) => mainstreamStatus(c) === "mainstream")
+			.length,
 		unknown: counts.filter((c) => c === null).length,
 	};
 }

@@ -39,11 +39,16 @@ import { usePlaylist } from "~/contexts/playlist-provider";
 import { usePromptBuilder } from "~/contexts/prompt-builder-provider";
 import { useOnboarding } from "~/contexts/step-provider";
 import { useRecommendations } from "~/contexts/use-recommendations";
+import { isGenerating } from "~/lib/generation-snapshot";
 import { cn } from "~/lib/utils";
 import { api } from "~/trpc/react";
 import { GenerationHistory } from "./generation-history";
 import { GenerationStatus } from "./generation-status";
 import { IntentChips } from "./intent-chips";
+import {
+	type PlaylistFormInput,
+	withClassicsOff,
+} from "./playlist-form-schema";
 import SongPreview from "./song-preview";
 import SongPreviewSkeleton from "./song-preview-skeleton";
 
@@ -191,16 +196,22 @@ export default function PlaylistTable() {
 		resetRecommendations();
 	}, [resetPlaylist, resetPrompt, resetStep, resetRecommendations]);
 
+	const regenerateRequest = (): PlaylistFormInput =>
+		playlist.request ?? {
+			prompt: brief.prompt,
+			trackCount: selectedTrackCount,
+			engine: brief.engine,
+			creativity: brief.creativity,
+			purpose: playlist.purpose,
+		};
+
 	const handleRegeneratePlaylist = () => {
-		void createPlaylist(
-			playlist.request ?? {
-				prompt: brief.prompt,
-				trackCount: selectedTrackCount,
-				engine: brief.engine,
-				creativity: brief.creativity,
-				purpose: playlist.purpose,
-			},
-		);
+		void createPlaylist(regenerateRequest());
+	};
+
+	// A new generation like Regenerate; this playlist is kept as it is.
+	const handleUndoClassics = () => {
+		void createPlaylist(withClassicsOff(regenerateRequest()));
 	};
 
 	return (
@@ -340,7 +351,16 @@ export default function PlaylistTable() {
 						</DropdownMenu>
 					</header>
 
-					<IntentChips intent={playlist.intent} purpose={playlist.purpose} />
+					<IntentChips
+						intent={playlist.intent}
+						purpose={playlist.purpose}
+						widened={playlist.widened}
+						onUndoClassics={
+							isGenerating(playlist.generation.status)
+								? undefined
+								: handleUndoClassics
+						}
+					/>
 
 					{/* Description */}
 					{playlist.description.length > 0 && (

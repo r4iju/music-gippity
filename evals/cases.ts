@@ -19,6 +19,16 @@ export interface EvalCase {
 const industrialBrief =
 	"Industrial y EBM para bailar: percusión mecánica, bajos repetitivos y tensión física. Incluye al menos cuatro artistas de la escena española, junto con artistas internacionales. Evita synth-pop suave, baladas y rock industrial dominado por guitarras. Mezcla épocas cuando encaje; no repitas artistas.";
 
+/**
+ * A scene case's playlist criterion: the picks belong to the scene, and the
+ * description does not frame a scene that is mainstream where it comes from
+ * as marginal.
+ */
+const sceneFidelity = (scene: string): Criterion => ({
+	id: "scene",
+	requirement: `Every artist belongs to ${scene}, identified by the artists rather than by language or titles alone; mark uncertain when membership is unknown. The scene is mainstream where it comes from: a description that frames it as niche, obscure, underground or "world music" is a mismatch. Accurate geographic context (naming the country, city or region the scene comes from) is fine and is not a mismatch.`,
+});
+
 export const CASES: EvalCase[] = [
 	...(["safe", "balanced", "adventurous"] as const).map(
 		(creativity): EvalCase => ({
@@ -135,6 +145,59 @@ export const CASES: EvalCase[] = [
 				id: "activity",
 				requirement:
 					"Restrained steady energy for reading, without sudden loud peaks or festival drops. A gentle pulse is allowed; do not require beatless ambient.",
+			},
+		],
+		playlistCriteria: [],
+	},
+	{
+		id: "french-rap",
+		brief:
+			"Rap français des années 2010 et 2020 : flows en français, prods lourdes, de Paris à Marseille et Bruxelles. Pas de rap anglophone, pas d'artistes répétés.",
+		creativity: "balanced",
+		purpose: "discover",
+		trackCount: 15,
+		trackCriteria: [
+			{
+				id: "sound",
+				requirement:
+					"French-language rap from the French or Belgian scene, first released 2010 or later. No English-language rap; a French-speaking artist rapping mostly in English is a mismatch. Judge the recording, not the artist's nationality alone; mark uncertain when unsure.",
+			},
+		],
+		playlistCriteria: [sceneFidelity("French and Belgian francophone rap")],
+	},
+	{
+		id: "amapiano",
+		brief:
+			"Amapiano for a Saturday afternoon braai: log drum basslines, airy piano chords and South African vocals.",
+		creativity: "balanced",
+		purpose: "discover",
+		trackCount: 15,
+		trackCriteria: [
+			{
+				id: "sound",
+				requirement:
+					"Amapiano with log drum basslines and its characteristic piano and percussion. Generic deep house, afro house or Afrobeats are mismatches unless the recording is amapiano.",
+			},
+		],
+		playlistCriteria: [sceneFidelity("the South African amapiano scene")],
+	},
+	{
+		id: "disco-classics",
+		brief:
+			"The best 70s disco classics for a kitchen dance party: the hits everyone sings along to.",
+		creativity: "balanced",
+		purpose: "discover",
+		trackCount: 15,
+		trackCriteria: [
+			{
+				id: "sound",
+				requirement:
+					"Disco first released in 1970–1979. A compilation/reissue date cannot establish the original release year. If unsure, say uncertain.",
+			},
+			{
+				id: "classics",
+				requirement:
+					"A widely known disco hit or standard that a general audience would recognise, not a deep cut, an obscure B-side or a crate-digger favourite. A later remix or re-recording of a hit is a mismatch. Mark uncertain when you cannot place the recording.",
 			},
 		],
 		playlistCriteria: [],

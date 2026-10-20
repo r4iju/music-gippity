@@ -1,6 +1,6 @@
 import { FatalError, getWorkflowMetadata, RetryableError } from "workflow";
 import { type Intent, IntentSchema } from "~/lib/intent";
-import { readIntent } from "~/server/api/intent";
+import { readRequestIntent } from "~/server/api/intent";
 import {
 	type Checked,
 	CheckedSchema,
@@ -64,7 +64,7 @@ export async function interpretIntentStep(id: string) {
 				{ kind: "intent", intent, purpose: request.purpose },
 			],
 			operation: (signal) =>
-				readIntent(request.prompt, signal, row.run.userId, true),
+				readRequestIntent(request, signal, row.run.userId, true),
 		});
 	} catch (error) {
 		stageError(error);

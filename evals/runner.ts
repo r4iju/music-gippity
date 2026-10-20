@@ -18,7 +18,8 @@ import {
 } from "~/lib/playlist-stream";
 import { type PopularitySummary, summarizePopularity } from "~/lib/popularity";
 import type { Purpose } from "~/lib/purpose";
-import type { ResolutionTier } from "~/lib/resolution";
+import type { ResolutionAttempt, ResolutionTier } from "~/lib/resolution";
+import type { SwapCandidates } from "~/server/api/create-playlist";
 import {
 	curatorSystemPrompt,
 	playlistPrompt,
@@ -70,6 +71,12 @@ export interface RunResult {
 	onSpotify: number;
 	/** How many final songs resolved at each tier. */
 	resolution: Record<ResolutionTier, number>;
+	/**
+	 * Resolved final songs by the search that found them; an engine's
+	 * substitute counts as a replacement whichever search found it. Absent in
+	 * older results.
+	 */
+	attempts?: Record<ResolutionAttempt | "replacement", number>;
 	/** Final songs whose recording is a version the pick did not ask for. */
 	drift: number;
 	replaced: number;
@@ -99,12 +106,14 @@ export const readPlaylistLine = (line: string) => {
 /**
  * Runs one case through the playlist handler. A live eval passes the fixture
  * listener, since its token cannot read an account; a test leaves the
- * session's fakes in place.
+ * session's fakes in place. `swapCandidates` replaces the candidates the
+ * curator is offered, for the candidate-swap eval.
  */
 export async function runCase(
 	evalCase: EvalCase,
 	engine: EngineId,
 	listener?: Listener,
+	swapCandidates?: SwapCandidates,
 ): Promise<RunResult> {
 	const started = performance.now();
 	const res = await createPlaylist(
@@ -120,6 +129,7 @@ export async function runCase(
 			}),
 		}),
 		listener,
+		swapCandidates,
 	);
 	if (!res.ok || !res.body)
 		throw new Error(`${engine} generation HTTP ${res.status}`);
@@ -232,6 +242,8 @@ export async function runCase(
 				purpose: evalCase.purpose,
 				candidateArtists: candidates?.artists,
 				candidateTracks: candidates?.tracks,
+				// Assigned in the stream callback, which narrowing cannot see.
+				classics: Boolean((intent as Intent | null)?.classics),
 			}),
 		},
 		name,
@@ -247,6 +259,16 @@ export async function runCase(
 				return funnel;
 			},
 			{ exact: 0, normalized: 0, fuzzy: 0, unresolved: 0 },
+		),
+		attempts: songs.reduce(
+			(counts, song) => {
+				if (!song.songId) return counts;
+				if (song.origin === "replacement" || song.origin === "repair")
+					counts.replacement += 1;
+				else if (song.resolution?.attempt) counts[song.resolution.attempt] += 1;
+				return counts;
+			},
+			{ first: 0, retry: 0, replacement: 0 },
 		),
 		drift: songs.filter((s) => s.resolution?.drift).length,
 		replaced: replaced.size,

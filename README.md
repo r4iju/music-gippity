@@ -29,6 +29,11 @@ metadata, playlists, user data) into an AI model. The app's invariant:
   from open databases (MusicBrainz, Last.fm, Deezer, lrclib, ListenBrainz).
   They never receive Spotify titles, ids, ISRCs, artwork or the listener's
   library.
+- A recording's ISRC, title, album and duration are used only as lookup keys
+  against those open databases; only the open databases' facts reach engine
+  requests.
+- Searches are restricted to the listener's market, and a recording Spotify
+  marks as not playable there is never used.
 - The listener's top, saved and recent tracks are read only to mark familiar
   songs in the UI and to cap known tracks in a discovery playlist. They are
   compared in the app and discarded.
@@ -64,6 +69,18 @@ OpenAI checks each substitute for vocals and fit, and only substitutes that
 pass both replace the original. This is a model-knowledge check, not audio
 verification.
 
+A brief that asks for well-known music is read as a classics request, which
+lifts the mainstream ceiling and, under Discover, the known-track cap; hard
+rules still apply. The reading is kept only when its quote is in the brief and
+contains supported wording: English "hits", "classics", "greatest", "biggest",
+"well-known", "famous", "popular", "iconic", "timeless", "everyone knows",
+"most played", "standards", "canon" and similar; Spanish "clásicos/clásicas",
+"éxitos", "los mejores", "más famosos"; French "classiques", "succès",
+"tubes", "incontournables"; German "Klassiker", "Hits", "größten". "Classic"
+alone is not enough, since "classic rock" names a genre, and a brief that only
+names a genre or era ("80s disco") is not a classics request. The intent chips
+show the reading with an undo.
+
 ## Local development
 
 ```sh
@@ -90,6 +107,7 @@ bun run eval       # live curator eval against real engines; see evals/README.md
 | `OPENAI_KEY`, `OPENAI_ORGANIZATION_ID` | OpenAI engine |
 | `GEMINI_API_KEY` | Gemini engine |
 | `LASTFM_API_KEY` | Optional; Last.fm evidence is off without it |
+| `EVAL_SPOTIFY_MARKET` | Country the eval searches in (default `US`); the app uses the listener's |
 | `TURSO_DATABASE_URL`, `TURSO_AUTH_TOKEN` | Database |
 
 Database scripts (`db:generate`, `db:push`, `db:migrate`, `db:studio`) read

@@ -36,6 +36,10 @@ export const ReadIntentSchema = z.object({
 	// The brief asks for an album (a record played through, a soundtrack),
 	// which lifts the one-per-album cap.
 	album: z.object({ quote }).nullable().default(null),
+	// The brief asks for well-known music ("best 80s disco hits", "classics"),
+	// which lifts the mainstream ceiling and the known-track cap. A soft
+	// preference, not a hard rule.
+	classics: z.object({ quote }).nullable().default(null),
 });
 export type ReadIntent = z.infer<typeof ReadIntentSchema>;
 
@@ -61,10 +65,56 @@ function ground<T extends { quote: string | null }>(
 }
 
 /**
+ * Wording that asks for well-known music, in English, Spanish, French and
+ * German. A classics quote must contain one, so a quote that only names a
+ * genre, era or scene ("80s disco") is not read as a classics request.
+ * "Classic" alone is left out: "classic rock" and "classic house" name
+ * genres, as German "Klassik" names classical music.
+ */
+const CLASSICS_CUE = new RegExp(
+	`(?<!\\p{L})(?:${[
+		// English
+		"hits?",
+		"classics",
+		"greatest",
+		"biggest",
+		"essentials?",
+		"anthems?",
+		"best[- ]of",
+		"best[- ]known",
+		"well[- ]known",
+		"famous",
+		"popular",
+		"iconic",
+		"all[- ]time",
+		"timeless",
+		"everyone knows",
+		"most played",
+		"standards",
+		"canon(?:ical)?",
+		// Spanish
+		"cl[aá]sic[oa]s",
+		"[eé]xitos?",
+		"l[oa]s mejores",
+		"m[aá]s famos[oa]s",
+		// French
+		"classiques",
+		"succ[eè]s",
+		"tubes",
+		"incontournables",
+		// German
+		"klassiker",
+		"gr[oö](?:ß|ss)ten",
+	].join("|")})(?!\\p{L})`,
+	"iu",
+);
+
+/**
  * Hard rules (vocal rule, exclusions, must-includes) each keep the exact
  * brief substring that supports them, so later stages act on the listener's
  * words rather than a paraphrase. A rule the brief does not literally
- * support is dropped rather than trusted, as is an album request. Difficulty follows the spec: any
+ * support is dropped rather than trusted, as is an album or classics request,
+ * and a classics quote must also carry classics wording. Difficulty follows the spec: any
  * exclusion, language or scene, or a no-vocals rule.
  */
 export function groundIntent(read: ReadIntent, brief: string): Intent {
@@ -79,6 +129,10 @@ export function groundIntent(read: ReadIntent, brief: string): Intent {
 		(rule) => ground(brief, rule) ?? [],
 	);
 	const album = read.album && ground(brief, read.album);
+	const classics =
+		read.classics && CLASSICS_CUE.test(read.classics.quote)
+			? ground(brief, read.classics)
+			: null;
 	const era =
 		read.era && read.era.start !== null && read.era.end !== null
 			? {
@@ -97,6 +151,7 @@ export function groundIntent(read: ReadIntent, brief: string): Intent {
 		exclusions,
 		mustInclude,
 		album,
+		classics,
 		difficulty: difficult ? "difficult" : "easy",
 	};
 }
