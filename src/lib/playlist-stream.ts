@@ -63,7 +63,6 @@ export const SongSchema = z.object({
 	artist: nonEmpty,
 	title: nonEmpty,
 	songId: z.string().nullish(),
-	previewUrl: z.string().nullish(),
 	albumImage: z.string().nullish(),
 	albumTitle: z.string().nullish(),
 	albumYear: z.number().nullish(),

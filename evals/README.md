@@ -63,6 +63,56 @@ Results saved before these were recorded show `n/a`. Overlap is
 computed against the latest earlier run with the same brief, count,
 creativity, engine and model, and is a drift signal, not a quality score.
 
+### Judge robustness
+
+To see whether the judge's verdicts depend on order or wording, re-judge
+saved runs:
+
+```sh
+EVAL_INPUTS=evals/results/run1.json bun run eval:judge-robustness
+EVAL_INPUTS=evals/results/run1.json EVAL_JUDGE_ENGINE=chatgpt EVAL_SEED=2 bun run eval:judge-robustness
+```
+
+It reads the saved results and calls only the judge (Gemini unless
+`EVAL_JUDGE_ENGINE` says otherwise): each run as saved, then with its tracks
+shuffled (`EVAL_SEED`, default 1, repeats a shuffle), its description
+paraphrased, and its description padded. The paraphrase is a deterministic
+rewrite with no engine call: the sentences in reverse order, or a single
+sentence's clauses, so every promise survives; a description with nothing to
+reorder skips it. Padding appends fixed filler that names no sound, era,
+artist or rule. Each variant changes one thing.
+
+The report lists, per variant, the track and playlist-criterion verdicts that
+differ from the as-saved judgment, matching tracks by recording rather than
+position. A sequence verdict may legitimately change with the order; any other
+change was swayed by order or wording alone. Calls pause `EVAL_PAUSE_MS`
+(default 15 s) apart; output goes to `results/judge-robustness-*.{json,md}`.
+
+### Candidate swap
+
+To see whether candidates influence the curator, regenerate saved cases with
+another brief's candidates:
+
+```sh
+EVAL_INPUTS=evals/results/run1.json bun run eval:candidate-swap
+```
+
+For each saved run that was offered candidates, the case is generated again
+on the same engine with the live search's candidates replaced by the saved
+offer of the run from another brief that shares the fewest artists with it
+(cases differing only in creativity share a brief, so they never swap with
+each other). The real search still runs; the curator only sees the swapped
+offer. The report counts final picks whose artist, or a credited artist, is
+in the real pool, the swapped pool, both or neither, beside the same count
+for the saved run. Picks that follow the swapped pool show the curator uses
+candidates; picks that still match the real pool came from its own knowledge
+of the brief. This is a full generation, so it costs what `bun run eval` does
+for those cases, without the judge. Output goes to
+`results/candidate-swap-*.{json,md}`.
+
+The swap is an eval-only argument to the create route (`runCase`'s
+`swapCandidates`); production never passes one.
+
 ### Listener snapshot
 
 The eval's Spotify token is client-credentials, which cannot read an account,
@@ -74,6 +124,9 @@ not anyone's account. To evaluate against a real account run
 one when several are stored) and keep the result out of commits: it is
 listening history. Known and budget columns only compare between runs on the
 same snapshot.
+
+Nor does that token carry a market, so the eval's searches are restricted to
+`EVAL_SPOTIFY_MARKET` (default `US`) where the app uses the listener's own.
 
 ## No-vocals repair
 

@@ -29,6 +29,11 @@ metadata, playlists, user data) into an AI model. The app's invariant:
   from open databases (MusicBrainz, Last.fm, Deezer, lrclib, ListenBrainz).
   They never receive Spotify titles, ids, ISRCs, artwork or the listener's
   library.
+- A recording's ISRC, title, album and duration are used only as lookup keys
+  against those open databases; only the open databases' facts reach engine
+  requests.
+- Searches are restricted to the listener's market, and a recording Spotify
+  marks as not playable there is never used.
 - The listener's top, saved and recent tracks are read only to mark familiar
   songs in the UI and to cap known tracks in a discovery playlist. They are
   compared in the app and discarded.
@@ -90,6 +95,7 @@ bun run eval       # live curator eval against real engines; see evals/README.md
 | `OPENAI_KEY`, `OPENAI_ORGANIZATION_ID` | OpenAI engine |
 | `GEMINI_API_KEY` | Gemini engine |
 | `LASTFM_API_KEY` | Optional; Last.fm evidence is off without it |
+| `EVAL_SPOTIFY_MARKET` | Country the eval searches in (default `US`); the app uses the listener's |
 | `TURSO_DATABASE_URL`, `TURSO_AUTH_TOKEN` | Database |
 
 Database scripts (`db:generate`, `db:push`, `db:migrate`, `db:studio`) read

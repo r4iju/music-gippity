@@ -1,6 +1,7 @@
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { z } from "zod";
+import { env } from "~/env.mjs";
 import type { Listener } from "~/server/api/listener";
 
 const RecordingSchema = z.object({
@@ -20,8 +21,16 @@ export type ListenerSnapshot = z.infer<typeof SnapshotSchema>;
 
 export const SNAPSHOT_PATH = path.join(import.meta.dir, "listener.json");
 
-/** A listener whose account never changes, so runs stay comparable. */
-export const fixtureListener = (snapshot: ListenerSnapshot): Listener => ({
+/**
+ * A listener whose account never changes, so runs stay comparable. The
+ * eval's client-credentials token has no market of its own, so searches use
+ * the one given.
+ */
+export const fixtureListener = (
+	snapshot: ListenerSnapshot,
+	market: string,
+): Listener => ({
+	market,
 	savedTracks: async () => snapshot.savedTracks,
 	topTracks: async () => snapshot.topTracks,
 	recentTracks: async () => snapshot.recentTracks,
@@ -32,7 +41,10 @@ export const fixtureListener = (snapshot: ListenerSnapshot): Listener => ({
  * without one the known and budget columns read as errors, as they did
  * under a client-credentials token.
  */
-export async function loadListener(file = SNAPSHOT_PATH): Promise<Listener> {
+export async function loadListener(
+	file = SNAPSHOT_PATH,
+	market = env.EVAL_SPOTIFY_MARKET,
+): Promise<Listener> {
 	let raw: string;
 	try {
 		raw = await readFile(file, "utf8");
@@ -41,5 +53,5 @@ export async function loadListener(file = SNAPSHOT_PATH): Promise<Listener> {
 			`No listener snapshot at ${file}; run \`bun run eval:snapshot-listener\``,
 		);
 	}
-	return fixtureListener(SnapshotSchema.parse(JSON.parse(raw)));
+	return fixtureListener(SnapshotSchema.parse(JSON.parse(raw)), market);
 }

@@ -50,6 +50,13 @@
 			"when": 1790130186849,
 			"tag": "0006_wise_blazing_skull",
 			"breakpoints": true
+		},
+		{
+			"idx": 7,
+			"version": "6",
+			"when": 1792504023954,
+			"tag": "0007_drop_song_preview_url",
+			"breakpoints": true
 		}
 	]
 }

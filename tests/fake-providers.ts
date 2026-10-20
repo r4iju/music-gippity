@@ -327,6 +327,8 @@ export interface FakeTrack {
 	releaseDate?: string;
 	isrc?: string | null;
 	albumId?: string;
+	/** Spotify's `is_playable` for the searched market; absent when unset. */
+	playable?: boolean;
 }
 
 /** Several candidates for one query, in the subset of Spotify's shape the app reads. */
@@ -336,7 +338,7 @@ export function spotifyTracks(items: FakeTrack[]): Response {
 			items: items.map((item) => ({
 				id: item.id,
 				name: item.name,
-				preview_url: null,
+				...(item.playable === undefined ? {} : { is_playable: item.playable }),
 				artists: [item.artist, ...(item.featuring ?? [])].map((name) => ({
 					name,
 				})),
