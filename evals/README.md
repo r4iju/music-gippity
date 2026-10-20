@@ -68,8 +68,9 @@ Results saved before these were recorded show `n/a`.
 
 Coverage columns show whose music a case serves, from evidence the run
 already gathers: "artist country" counts the case's distinct artists by
-MusicBrainz country, "first release years" spans the MusicBrainz first-release
-years with their median, "long tail" counts recordings not mainstream or of
+MusicBrainz country (an artist without country evidence counts as unknown),
+"first release years" spans the MusicBrainz first-release years with their
+median, "long tail" counts recordings not mainstream or of
 unknown popularity, and "Deezer counted" counts recordings only Deezer's rank
 counted. The report and console end with the distinct artists across all
 cases, in total and per engine. These columns are report-only and never fail

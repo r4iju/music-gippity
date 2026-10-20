@@ -187,14 +187,14 @@ const evidenceOf = (result: RunResult) => {
 
 /** Distinct artists by MusicBrainz country, e.g. `FR 3 · BE 1 · unknown 1`. */
 const artistCountryCell = (result: RunResult) => {
-	const evidence = evidenceOf(result);
-	if (!evidence) return "n/a";
+	if (!evidenceOf(result)) return "n/a";
+	// Every final artist counts; one without evidence is unknown.
 	const countries = new Map<string, string | null>();
-	for (const { artist, evidence: facts } of evidence) {
+	for (const { artist, evidence } of result.songs) {
 		const key = artist.toLowerCase();
 		countries.set(
 			key,
-			countries.get(key) ?? facts.artistCountry?.value ?? null,
+			countries.get(key) ?? evidence?.artistCountry?.value ?? null,
 		);
 	}
 	const tally = new Map<string, number>();

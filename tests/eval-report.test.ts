@@ -200,6 +200,21 @@ test("an older result without evidence or per-source counts renders its coverage
 	expect(bare("long tail")).toBe("n/a");
 });
 
+test("an artist whose song has no evidence counts as unknown country once any song has evidence", () => {
+	const cell = columns(
+		summaryRow(
+			record({
+				...SAVED,
+				songs: [
+					withEvidence(1, "IAM", "FR", 1997),
+					{ ...song(2, "exact", "s2"), artist: "Damso" },
+				],
+			} as unknown as RunResult),
+		),
+	);
+	expect(cell("artist country")).toBe("FR 1 · unknown 1");
+});
+
 test("the report shows distinct artists across all cases in the run", () => {
 	const report = renderReport({
 		schemaVersion: 2,
