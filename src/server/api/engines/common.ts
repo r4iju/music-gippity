@@ -40,7 +40,10 @@ export const creativityInstruction = (
 		: CREATIVITY[creativity].instruction;
 
 /** The purpose instruction, followed by the classics one for a classics request. */
-const purposeInstruction = (purpose: Purpose, classics: boolean): string =>
+export const purposeInstruction = (
+	purpose: Purpose,
+	classics: boolean,
+): string =>
 	`${PURPOSE[purpose].instruction}${classics ? ` ${CLASSICS_INSTRUCTION}` : ""}`;
 
 interface PlaylistPromptProps {

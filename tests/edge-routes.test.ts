@@ -5846,6 +5846,51 @@ test("eval judge receives the curator's title, never the resolved Spotify identi
 	expect(JSON.stringify(input)).not.toContain("Remaster");
 });
 
+test("eval judge gets the purpose instruction the curator got, with the classics one for a classics request", async () => {
+	const fake = installFakeFetch({
+		openai: () => openaiStream(PLAYLIST_TEXT),
+		gemini: () => geminiStream("{}"),
+	});
+	const result = await runCase(
+		{
+			id: "classics-judge",
+			brief: "Best 80s disco hits",
+			creativity: "balanced",
+			purpose: "discover",
+			trackCount: 2,
+			trackCriteria: [],
+			playlistCriteria: [],
+		},
+		"chatgpt",
+	);
+	const intent: Intent = {
+		genres: ["disco"],
+		era: { start: 1980, end: 1989 },
+		mood: null,
+		energy: null,
+		language: null,
+		vocalRule: { rule: "none", quote: null },
+		exclusions: [],
+		mustInclude: [],
+		album: null,
+		classics: null,
+		difficulty: "easy",
+	};
+	const judged = async (classics: Intent["classics"]) => {
+		await judgePlaylist(
+			{ ...result, intent: { ...intent, classics } },
+			"gemini",
+		);
+		return JSON.parse(
+			geminiPrompt(providerCalls(fake, PROVIDER_HOST.gemini).at(-1)) ?? "{}",
+		).purposeInstruction as string;
+	};
+	expect(await judged({ quote: "Best 80s Disco Hits" })).toBe(
+		`${PURPOSE.discover.instruction} ${CLASSICS_INSTRUCTION}`,
+	);
+	expect(await judged(null)).toBe(PURPOSE.discover.instruction);
+});
+
 for (const outcome of [
 	"accepted",
 	"unresolved",
