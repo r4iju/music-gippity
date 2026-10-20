@@ -1,8 +1,8 @@
 import { describe, expect, test } from "bun:test";
 import type { Evidence } from "~/lib/evidence";
 import {
-	isMainstream,
 	MAINSTREAM_LISTENERS,
+	mainstreamStatus,
 	summarizePopularity,
 } from "~/lib/popularity";
 
@@ -10,16 +10,27 @@ const counted = (listeners: Evidence["listeners"]) =>
 	({ listeners }) as Evidence;
 
 describe("popularity", () => {
-	test("each source is judged by its own threshold", () => {
+	test("each source is judged by its own threshold, and an uncounted recording is unknown", () => {
 		const lb = MAINSTREAM_LISTENERS.listenbrainz;
-		expect(isMainstream({ value: lb, source: "listenbrainz" })).toBe(true);
-		expect(isMainstream({ value: lb, source: "lastfm" })).toBe(
-			lb >= MAINSTREAM_LISTENERS.lastfm,
+		expect(mainstreamStatus({ value: 5000, source: "listenbrainz" })).toBe(
+			"mainstream",
 		);
-		const lastfm = MAINSTREAM_LISTENERS.lastfm;
-		expect(isMainstream({ value: lastfm, source: "lastfm" })).toBe(true);
-		expect(isMainstream({ value: lastfm - 1, source: "lastfm" })).toBe(false);
-		expect(isMainstream(null)).toBe(false);
+		expect(mainstreamStatus({ value: 5000, source: "lastfm" })).toBe(
+			"not-mainstream",
+		);
+		expect(mainstreamStatus({ value: lb - 1, source: "listenbrainz" })).toBe(
+			"not-mainstream",
+		);
+		expect(mainstreamStatus({ value: 250000, source: "lastfm" })).toBe(
+			"mainstream",
+		);
+		expect(mainstreamStatus({ value: 249999, source: "lastfm" })).toBe(
+			"not-mainstream",
+		);
+		expect(mainstreamStatus({ value: 0, source: "lastfm" })).toBe(
+			"not-mainstream",
+		);
+		expect(mainstreamStatus(null)).toBe("unknown");
 	});
 
 	test("medians are per source and a missing evidence line is unknown", () => {

@@ -451,8 +451,8 @@ describe("playlist generation core", () => {
 				["Bora Vocal", "vocal"],
 			]);
 			expect(songs.map((s) => s.resolution)).toEqual([
-				{ tier: "exact", drift: false, isrc: "ISRC-plain" },
-				{ tier: "exact", drift: false, isrc: "ISRC-vocal" },
+				{ tier: "exact", drift: false, isrc: "ISRC-plain", attempt: "first" },
+				{ tier: "exact", drift: false, isrc: "ISRC-vocal", attempt: "first" },
 			]);
 		});
 
@@ -475,6 +475,7 @@ describe("playlist generation core", () => {
 				tier: "normalized",
 				drift: true,
 				isrc: "ISRC-live",
+				attempt: "first",
 			});
 		});
 
@@ -504,6 +505,7 @@ describe("playlist generation core", () => {
 				tier: "exact",
 				drift: false,
 				isrc: "ISRC-studio",
+				attempt: "retry",
 			});
 			expect(spotifyQueries(fake)).toEqual([
 				"artist:Kavinsky track:Nightcall",
@@ -529,6 +531,7 @@ describe("playlist generation core", () => {
 				tier: "exact",
 				drift: false,
 				isrc: "ISRC-sp-artist-kavinsky-track-nightcall",
+				attempt: "first",
 			});
 			expect(last("Ghost")).toEqual({
 				tier: "unresolved",
@@ -751,6 +754,60 @@ describe("playlist generation core", () => {
 			expect(TABLE_HEADER).toContain("exact / normalized / fuzzy / unresolved");
 			expect(TABLE_HEADER).toContain("drift");
 			expect(row).toContain("1 / 1 / 0 / 0");
+		});
+
+		test("eval results and the report count picks resolved on the first search, the retry and by replacement", async () => {
+			installFakeFetch({
+				gemini: (p) =>
+					geminiStream(
+						p.startsWith("Build")
+							? picks(
+									["Kavinsky", "Nightcall"],
+									["The Midnight", "Sunset"],
+									["Nobody", "Ghost"],
+								)
+							: '{"artist":"Com Truise","title":"Brokendate"}',
+					),
+				spotify: (query) =>
+					query.includes("Ghost")
+						? spotifyNoMatch()
+						: query.includes("Sunset")
+							? spotifyMatchPlainOnly(query)
+							: spotifyMatch(query),
+			});
+			const result = await runCase(
+				{
+					id: "attempts",
+					brief: "Nocturnal synthwave for a long drive",
+					creativity: "balanced",
+					purpose: "discover",
+					trackCount: 3,
+					trackCriteria: [],
+					playlistCriteria: [],
+				},
+				"gemini",
+			);
+			expect(
+				result.songs.map((s) => [s.artist, s.resolution?.attempt]),
+			).toEqual([
+				["Kavinsky", "first"],
+				["The Midnight", "retry"],
+				["Com Truise", "first"],
+			]);
+			expect(result.attempts).toEqual({ first: 1, retry: 1, replacement: 1 });
+			const header = (TABLE_HEADER.split("\n")[0] ?? "").split(" | ");
+			const row = summaryRow({
+				caseId: "attempts",
+				engine: "gemini",
+				result,
+				failures: [],
+				overlap: "n/a",
+			}).split(" | ");
+			expect(row).toHaveLength(header.length);
+			expect(row[header.indexOf("first try")]).toBe("1/3 (33%)");
+			expect(row[header.indexOf("first / retry / replacement")]).toBe(
+				"1 / 1 / 1",
+			);
 		});
 	});
 
@@ -1614,7 +1671,7 @@ describe("playlist generation core", () => {
 			).toEqual(["unknown", null, null]);
 		});
 
-		test("a recording neither source counts is unknown and not mainstream", async () => {
+		test("a recording neither source counts is reported as unknown, apart from mainstream", async () => {
 			installFakeFetch({
 				openai: () => openaiStream(TWO),
 				musicbrainz: (isrc) => musicbrainzRecording({ mbid: `mb-${isrc}` }),
@@ -2386,10 +2443,11 @@ describe("playlist generation core", () => {
 				]);
 			});
 
-			test("the offer keeps to the ceiling's share of mainstream candidates", async () => {
+			test("the offer keeps to the ceiling's share of mainstream candidates, never holding back uncounted ones", async () => {
 				const listeners: Record<string, number> = {};
+				// Chart 7 and 8 have no Last.fm count.
 				for (let i = 1; i <= 10; i++)
-					listeners[`Chart ${i}`] = i <= 6 ? HIT : 100;
+					if (i !== 7 && i !== 8) listeners[`Chart ${i}`] = i <= 6 ? HIT : 100;
 				const { lines } = await create(
 					{ purpose: "discover" },
 					{
@@ -2404,15 +2462,15 @@ describe("playlist generation core", () => {
 				// Two tracks at Balanced: one mainstream pick, three of six offered.
 				expect(event.popularity).toEqual({
 					budget: { maxMainstream: 1, minMainstream: null },
-					counted: 10,
+					counted: 8,
 					mainstream: 3,
 				});
 				expect(event.tracks.map((t) => [t.title, t.listeners])).toEqual([
 					["Song 1", HIT],
 					["Song 2", HIT],
 					["Song 3", HIT],
-					["Song 7", 100],
-					["Song 8", 100],
+					["Song 7", null],
+					["Song 8", null],
 					["Song 9", 100],
 				]);
 			});
@@ -2491,9 +2549,12 @@ describe("playlist generation core", () => {
 				]);
 			});
 
-			test("under Room's floor each source offers its mainstream candidates first", async () => {
+			test("under Room's floor each source offers its mainstream candidates first, and uncounted ones in chart order", async () => {
 				const listeners: Record<string, number> = {};
 				for (const i of [16, 17, 18]) listeners[`Chart ${i}`] = HIT;
+				// Counted below the threshold, so no further forward than the
+				// uncounted songs before it.
+				listeners["Chart 20"] = 100;
 				const { lines } = await create(
 					{ purpose: "room", creativity: "adventurous" },
 					{
@@ -3662,8 +3723,8 @@ describe("playlist generation core", () => {
 			lines.find((line) => line.kind === "popularity");
 		type RerankInput = {
 			popularityBudget: unknown;
-			tracks: { id: string; artist: string; mainstream: boolean }[];
-			pool: { id: string; artist: string; mainstream: boolean }[];
+			tracks: { id: string; artist: string; popularity: string }[];
+			pool: { id: string; artist: string; popularity: string }[];
 		};
 		const rerankInput = (fake: ReturnType<typeof installFakeFetch>) =>
 			JSON.parse(
@@ -3689,7 +3750,7 @@ describe("playlist generation core", () => {
 				});
 		});
 
-		test("Adventurous keeps the first three mainstream picks and swaps later ones for pool songs that are not, unknown counts included", async () => {
+		test("Adventurous keeps the first three mainstream picks and swaps later ones for pool songs counted below the threshold, never uncounted ones", async () => {
 			const fake = installFakeFetch({
 				gemini: () => geminiStream(curate("Golf", "Hotel", "India")),
 				spotify,
@@ -3706,41 +3767,84 @@ describe("playlist generation core", () => {
 			});
 			const lines = await create({ creativity: "adventurous" });
 			const final = slots(lines);
+			// India has no count, so Echo has no replacement and stays.
 			expect(final.map((s) => [s.artist, s.origin])).toEqual([
 				["Alpha", "pick"],
 				["Bravo", "pick"],
 				["Charlie", "pick"],
 				["Hotel", "popularity"],
-				["India", "popularity"],
+				["Echo", "pick"],
 				["Foxtrot", "pick"],
 			]);
 			expect(popularityLine(lines)).toMatchObject({
-				status: "held",
+				status: "breached",
 				budget: { maxMainstream: 3, minMainstream: null },
 				recordings: 6,
-				mainstream: 3,
-				unknown: 1,
-				swapped: [final[3]?.id, final[4]?.id],
+				mainstream: 4,
+				unknown: 0,
+				swapped: [final[3]?.id],
 			});
 			const input = rerankInput(fake);
 			expect(input.popularityBudget).toEqual({
 				maxMainstream: 3,
 				minMainstream: null,
 			});
-			expect(input.tracks.map((t) => t.mainstream)).toEqual([
-				true,
-				true,
-				true,
-				false,
-				false,
-				false,
+			expect(input.tracks.map((t) => t.popularity)).toEqual([
+				"mainstream",
+				"mainstream",
+				"mainstream",
+				"not-mainstream",
+				"mainstream",
+				"not-mainstream",
 			]);
-			expect(input.pool.map((t) => [t.artist, t.mainstream])).toEqual([
-				["Golf", true],
+			expect(input.pool.map((t) => [t.artist, t.popularity])).toEqual([
+				["Golf", "mainstream"],
+				["India", "unknown"],
 			]);
 		});
 
-		test("Room lifts a set below half mainstream from the pool, replacing the least-heard picks first", async () => {
+		test("Room keeps uncounted picks and reads breached when the floor cannot be met without them", async () => {
+			const fake = installFakeFetch({
+				gemini: () => geminiStream(curate("Golf", "Hotel")),
+				spotify,
+				lastfm: listeners({ Alpha: 100, Golf: HIT, Hotel: HIT }),
+			});
+			const lines = await create({ purpose: "room" });
+			const final = slots(lines);
+			// Only Alpha is counted below the threshold, so only Alpha makes
+			// way; the uncounted picks stay although the floor is not met.
+			expect(final.map((s) => [s.artist, s.origin])).toEqual([
+				["Golf", "popularity"],
+				["Bravo", "pick"],
+				["Charlie", "pick"],
+				["Delta", "pick"],
+				["Echo", "pick"],
+				["Foxtrot", "pick"],
+			]);
+			expect(popularityLine(lines)).toMatchObject({
+				status: "breached",
+				budget: { maxMainstream: null, minMainstream: 3 },
+				recordings: 6,
+				mainstream: 1,
+				unknown: 5,
+				swapped: [final[0]?.id],
+			});
+			expect(rerankInput(fake).tracks.map((t) => t.popularity)).toEqual([
+				"mainstream",
+				"unknown",
+				"unknown",
+				"unknown",
+				"unknown",
+				"unknown",
+			]);
+			const { systemPrompt } = lines.find((l) => l.kind === "rerank") as {
+				systemPrompt: string;
+			};
+			for (const status of ['"mainstream"', '"not-mainstream"', '"unknown"'])
+				expect(systemPrompt).toContain(status);
+		});
+
+		test("Room lifts a set below half mainstream from the pool, replacing the least-heard counted picks first", async () => {
 			installFakeFetch({
 				gemini: () => geminiStream(curate("Golf", "Hotel", "India")),
 				spotify,
@@ -3757,19 +3861,20 @@ describe("playlist generation core", () => {
 			});
 			const lines = await create({ purpose: "room" });
 			const final = slots(lines);
+			// Charlie has no count, so Bravo and Echo make way and Charlie stays.
 			expect(final.map((s) => [s.artist, s.origin])).toEqual([
 				["Alpha", "pick"],
-				["India", "popularity"],
 				["Golf", "popularity"],
+				["Charlie", "pick"],
 				["Delta", "pick"],
-				["Echo", "pick"],
+				["India", "popularity"],
 				["Foxtrot", "pick"],
 			]);
 			expect(popularityLine(lines)).toMatchObject({
 				status: "held",
 				budget: { maxMainstream: null, minMainstream: 3 },
 				mainstream: 3,
-				swapped: [final[2]?.id, final[1]?.id],
+				swapped: [final[1]?.id, final[4]?.id],
 			});
 		});
 
@@ -3817,6 +3922,8 @@ describe("playlist generation core", () => {
 					Charlie: HIT,
 					Delta: HIT,
 					Echo: HIT,
+					Golf: 100,
+					Hotel: 100,
 				}),
 			});
 			const lines = await create({
@@ -3917,6 +4024,8 @@ describe("playlist generation core", () => {
 					Charlie: HIT,
 					Delta: HIT,
 					Echo: HIT,
+					Golf: 100,
+					Hotel: 100,
 				}),
 			});
 			const result = await runCase(
@@ -4893,6 +5002,7 @@ describe("POST /api/edge/replace-song", () => {
 			tier: "exact",
 			drift: false,
 			isrc: "ISRC-plain",
+			attempt: "first",
 		});
 	});
 

@@ -17,10 +17,21 @@ export const MAINSTREAM_LISTENERS: Record<ListenerSource, number> = {
 	listenbrainz: 5000,
 };
 
-/** A recording no source counts is treated as not mainstream. */
-export const isMainstream = (listeners: Evidence["listeners"]): boolean =>
-	listeners !== null &&
-	listeners.value >= MAINSTREAM_LISTENERS[listeners.source];
+/**
+ * Which side of its source's threshold a recording falls on. A recording
+ * no source counts is unknown, not low: it counts toward neither side of a
+ * popularity budget.
+ */
+export type MainstreamStatus = "mainstream" | "not-mainstream" | "unknown";
+
+export const mainstreamStatus = (
+	listeners: Evidence["listeners"],
+): MainstreamStatus => {
+	if (listeners === null) return "unknown";
+	return listeners.value >= MAINSTREAM_LISTENERS[listeners.source]
+		? "mainstream"
+		: "not-mainstream";
+};
 
 /**
  * How many mainstream recordings the playlist may hold. Creativity sets a
@@ -81,7 +92,8 @@ export function summarizePopularity(
 			listenbrainz: median(from("listenbrainz")),
 			lastfm: median(from("lastfm")),
 		},
-		mainstream: counts.filter(isMainstream).length,
+		mainstream: counts.filter((c) => mainstreamStatus(c) === "mainstream")
+			.length,
 		unknown: counts.filter((c) => c === null).length,
 	};
 }

@@ -158,6 +158,21 @@ const fromCandidatesCell = (result: RunResult) =>
 		? "skipped"
 		: `${result.fromCandidates}/${result.tracks} (${result.tracks ? Math.round((100 * result.fromCandidates) / result.tracks) : 0}%)`;
 
+/** Resolved final songs found by the first search, of all final songs. */
+const firstTryCell = (result: RunResult) =>
+	result.attempts
+		? `${result.attempts.first}/${result.tracks} (${result.tracks ? Math.round((100 * result.attempts.first) / result.tracks) : 0}%)`
+		: "n/a";
+
+const attemptsCell = (result: RunResult) =>
+	result.attempts
+		? [
+				result.attempts.first,
+				result.attempts.retry,
+				result.attempts.replacement,
+			].join(" / ")
+		: "n/a";
+
 export function summaryRow(record: CaseRecord): string {
 	const result = record.result;
 	const assessment =
@@ -171,11 +186,11 @@ export function summaryRow(record: CaseRecord): string {
 				)
 				.join(" / ")
 		: "n/a";
-	return `| ${[record.caseId, record.engine, result?.generation.purpose ?? "n/a", seconds(result?.firstSongMs), seconds(result?.totalMs), result ? `${result.tracks}/${result.case.trackCount}` : "n/a", result?.uniqueArtists ?? "n/a", result ? `${result.onSpotify}/${result.tracks}` : "n/a", result ? [result.resolution.exact, result.resolution.normalized, result.resolution.fuzzy, result.resolution.unresolved].join(" / ") : "n/a", result?.drift ?? "n/a", result?.replaced ?? "n/a", result?.poolFills ?? "n/a", result ? (result.novelty?.status === "ok" ? `${result.known} / ${result.knownArtist}` : result.novelty ? "error" : "n/a") : "n/a", budgetCell(result?.budget), ...(result?.popularity ? popularityCells(result.popularity) : ["n/a", "n/a", "n/a"]), popularityBudgetCell(result?.popularityBudget), result ? (result.candidates ? (result.candidates.status === "ok" ? candidatesCell(result.candidates, result.candidateUse) : "error") : "skipped") : "n/a", result ? fromCandidatesCell(result) : "n/a", result ? candidateSourcesCell(result) : "n/a", result ? result.repairs.filter((r) => r.outcome === "replaced").length : "n/a", result ? (result.rerank ? (result.rerank.status === "ok" ? `${(result.rerank.pruned?.length ?? 0) - (result.rerank.restored?.length ?? 0)}/${result.rerank.pruned?.length ?? 0}` : "error") : "skipped") : "n/a", counts, seconds(record.judgment?.totalMs), record.failures.length ? "ERROR" : record.judgment ? "complete" : "pending", record.overlap].map(cell).join(" | ")} |`;
+	return `| ${[record.caseId, record.engine, result?.generation.purpose ?? "n/a", seconds(result?.firstSongMs), seconds(result?.totalMs), result ? `${result.tracks}/${result.case.trackCount}` : "n/a", result?.uniqueArtists ?? "n/a", result ? `${result.onSpotify}/${result.tracks}` : "n/a", result ? `${result.resolution.exact + result.resolution.normalized}/${result.tracks}` : "n/a", result ? `${result.resolution.fuzzy}/${result.tracks}` : "n/a", result ? [result.resolution.exact, result.resolution.normalized, result.resolution.fuzzy, result.resolution.unresolved].join(" / ") : "n/a", result ? firstTryCell(result) : "n/a", result ? attemptsCell(result) : "n/a", result?.drift ?? "n/a", result?.replaced ?? "n/a", result?.poolFills ?? "n/a", result ? (result.novelty?.status === "ok" ? `${result.known} / ${result.knownArtist}` : result.novelty ? "error" : "n/a") : "n/a", budgetCell(result?.budget), ...(result?.popularity ? popularityCells(result.popularity) : ["n/a", "n/a", "n/a"]), popularityBudgetCell(result?.popularityBudget), result ? (result.candidates ? (result.candidates.status === "ok" ? candidatesCell(result.candidates, result.candidateUse) : "error") : "skipped") : "n/a", result ? fromCandidatesCell(result) : "n/a", result ? candidateSourcesCell(result) : "n/a", result ? result.repairs.filter((r) => r.outcome === "replaced").length : "n/a", result ? (result.rerank ? (result.rerank.status === "ok" ? `${(result.rerank.pruned?.length ?? 0) - (result.rerank.restored?.length ?? 0)}/${result.rerank.pruned?.length ?? 0}` : "error") : "skipped") : "n/a", counts, seconds(record.judgment?.totalMs), record.failures.length ? "ERROR" : record.judgment ? "complete" : "pending", record.overlap].map(cell).join(" | ")} |`;
 }
 
 export const TABLE_HEADER =
-	"| case | engine | purpose | first song | generation | tracks | artists | on Spotify | exact / normalized / fuzzy / unresolved | drift | replaced | pool | known / artist | budget | median listeners (Last.fm / LB) | mainstream | unknown listeners | popularity budget | candidates | from candidates | candidate sources (pool → used) | repaired | filled / pruned | fit / mismatch / uncertain (advisory) | judge | eval | same as last run |\n|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|";
+	"| case | engine | purpose | first song | generation | tracks | artists | on Spotify | exact or normalized | fuzzy | exact / normalized / fuzzy / unresolved | first try | first / retry / replacement | drift | replaced | pool | known / artist | budget | median listeners (Last.fm / LB) | mainstream | unknown listeners | popularity budget | candidates | from candidates | candidate sources (pool → used) | repaired | filled / pruned | fit / mismatch / uncertain (advisory) | judge | eval | same as last run |\n|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|";
 
 export function renderReport(run: EvalRun): string {
 	const lines = [
@@ -183,7 +198,7 @@ export function renderReport(run: EvalRun): string {
 		"",
 		`Started: ${run.startedAt}. Source: ${run.source.revision}${run.source.dirty ? " (dirty working tree; prompts captured in JSON)" : ""}. Complete: ${run.complete}.`,
 		"",
-		"Musical judgments are advisory and uncalibrated. They use model knowledge and supplied metadata, not listening, audio measurements, or verified research. Unknowns are not passes. The on Spotify count is resolver hits, not verified recording identity. Generator identity is hidden from the judge, but a fixed judge can still have provider/style biases.",
+		"Musical judgments are advisory and uncalibrated. They use model knowledge and supplied metadata, not listening, audio measurements, or verified research. Unknowns are not passes. The on Spotify count is resolver hits, not verified recording identity; exact or normalized counts title matches, fuzzy counts other recordings credited to the artist. Generator identity is hidden from the judge, but a fixed judge can still have provider/style biases.",
 		"",
 		TABLE_HEADER,
 		...run.records.map(summaryRow),
