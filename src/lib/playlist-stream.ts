@@ -247,8 +247,9 @@ const PopularityCountsSchema = z.object({
 
 /**
  * How mainstream the final playlist is, emitted after rerank. A recording
- * no source counts is not mainstream. A budgeted playlist reports whether
- * its budget held and which slots were swapped for it.
+ * no source counts is unknown: reported apart from those counted below the
+ * threshold, and on neither side of the budget. A budgeted playlist reports
+ * whether its budget held and which slots were swapped for it.
  */
 export const PopularityEventSchema = z.discriminatedUnion("status", [
 	PopularityCountsSchema.extend({
@@ -267,7 +268,7 @@ export type PopularityEvent = z.infer<typeof PopularityEventSchema>;
 /**
  * Last.fm listeners of a candidate, counted before it is offered; for an
  * artist, those of their most played track. Null when Last.fm had no
- * count in time, which counts as not mainstream.
+ * count in time, which counts as unknown.
  */
 const listeners = z.number().int().nullable();
 

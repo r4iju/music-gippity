@@ -10,7 +10,7 @@ import type {
 	PopularityBudget,
 	TrackCandidate,
 } from "~/lib/playlist-stream";
-import { isMainstream } from "~/lib/popularity";
+import { mainstreamStatus } from "~/lib/popularity";
 import { creditsArtist } from "~/lib/resolution";
 import { requestEngineText } from "~/server/api/engines";
 import { extractFirstJson } from "~/server/api/engines/common";
@@ -160,7 +160,7 @@ const CHART_LIMIT = 50;
  * are the ones the listener has most likely heard.
  */
 const CHART_HEAD = 10;
-/** Candidates Last.fm has not counted by then are offered as not mainstream. */
+/** Candidates Last.fm has not counted by then are offered as unknown. */
 const COUNT_DEADLINE_MS = 4000;
 
 type Pooled = ArtistCandidate | TrackCandidate;
@@ -225,10 +225,15 @@ async function countedInTurn(lists: Pooled[][]): Promise<Pooled[][]> {
 	}
 }
 
+/**
+ * Whether Last.fm counts a candidate above the threshold. One it has not
+ * counted is unknown, which a ceiling's share never holds back and a floor
+ * never offers first.
+ */
 const mainstream = (item: Pooled): boolean =>
-	isMainstream(
+	mainstreamStatus(
 		item.listeners == null ? null : { value: item.listeners, source: "lastfm" },
-	);
+	) === "mainstream";
 
 export interface CandidatePool {
 	/** Artists offered to the curator, whose songs count as candidates. */
