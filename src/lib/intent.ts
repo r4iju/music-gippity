@@ -36,6 +36,10 @@ export const ReadIntentSchema = z.object({
 	// The brief asks for an album (a record played through, a soundtrack),
 	// which lifts the one-per-album cap.
 	album: z.object({ quote }).nullable().default(null),
+	// The brief asks for well-known music ("best 80s disco hits", "classics"),
+	// which lifts the mainstream ceiling and the known-track cap. A soft
+	// preference, not a hard rule.
+	classics: z.object({ quote }).nullable().default(null),
 });
 export type ReadIntent = z.infer<typeof ReadIntentSchema>;
 
@@ -64,7 +68,7 @@ function ground<T extends { quote: string | null }>(
  * Hard rules (vocal rule, exclusions, must-includes) each keep the exact
  * brief substring that supports them, so later stages act on the listener's
  * words rather than a paraphrase. A rule the brief does not literally
- * support is dropped rather than trusted, as is an album request. Difficulty follows the spec: any
+ * support is dropped rather than trusted, as is an album or classics request. Difficulty follows the spec: any
  * exclusion, language or scene, or a no-vocals rule.
  */
 export function groundIntent(read: ReadIntent, brief: string): Intent {
@@ -79,6 +83,7 @@ export function groundIntent(read: ReadIntent, brief: string): Intent {
 		(rule) => ground(brief, rule) ?? [],
 	);
 	const album = read.album && ground(brief, read.album);
+	const classics = read.classics && ground(brief, read.classics);
 	const era =
 		read.era && read.era.start !== null && read.era.end !== null
 			? {
@@ -97,6 +102,7 @@ export function groundIntent(read: ReadIntent, brief: string): Intent {
 		exclusions,
 		mustInclude,
 		album,
+		classics,
 		difficulty: difficult ? "difficult" : "easy",
 	};
 }

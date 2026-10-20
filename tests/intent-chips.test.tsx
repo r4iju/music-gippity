@@ -16,6 +16,7 @@ const INTENT: Intent = {
 	],
 	mustInclude: [{ artist: "Kavinsky", quote: "con Kavinsky" }],
 	album: { quote: "el álbum entero" },
+	classics: null,
 	difficulty: "difficult",
 };
 
@@ -60,6 +61,44 @@ describe("IntentChips", () => {
 			/<li title="You picked this purpose"[^>]*>For a room</,
 		);
 		expect(html.indexOf("For a room")).toBeLessThan(html.indexOf("synthwave"));
+	});
+
+	test("a classics request shows its chip with the quote as tooltip and an undo", () => {
+		const classics: Intent = {
+			...INTENT,
+			classics: { quote: "los grandes clásicos" },
+		};
+		expect(intentChips(classics).at(-1)).toMatchObject({
+			key: "classics",
+			label: "Classics request",
+			quote: "los grandes clásicos",
+		});
+		const html = renderToStaticMarkup(
+			<IntentChips intent={classics} onUndoClassics={() => {}} />,
+		);
+		expect(html).toMatch(
+			/<li title="From your brief: “los grandes clásicos”"[^>]*>Classics request<button type="button"[^>]*>Undo<\/button><\/li>/,
+		);
+		expect(html).toContain(
+			'aria-label="Undo classics request: generate again without it"',
+		);
+	});
+
+	test("no classics chip or undo without a classics request or an intent", () => {
+		const plain = renderToStaticMarkup(
+			<IntentChips intent={INTENT} onUndoClassics={() => {}} />,
+		);
+		expect(plain).not.toContain("Classics request");
+		expect(plain).not.toContain("<button");
+		expect(
+			renderToStaticMarkup(
+				<IntentChips
+					intent={null}
+					purpose="discover"
+					onUndoClassics={() => {}}
+				/>,
+			),
+		).not.toContain("<button");
 	});
 
 	test("a failed read still shows the purpose", () => {

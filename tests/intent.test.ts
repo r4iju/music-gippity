@@ -55,6 +55,21 @@ describe("groundIntent", () => {
 		expect(invented.album).toBeNull();
 	});
 
+	test("a classics request keeps its quote in the brief's spelling and is dropped when the brief never says it", () => {
+		const brief = "The Best 80s Disco Hits for a kitchen party";
+		const asked = groundIntent(
+			ReadIntentSchema.parse({ classics: { quote: "best 80s disco hits" } }),
+			brief,
+		);
+		expect(asked.classics).toEqual({ quote: "Best 80s Disco Hits" });
+		const invented = groundIntent(
+			ReadIntentSchema.parse({ classics: { quote: "greatest anthems" } }),
+			brief,
+		);
+		expect(invented.classics).toBeNull();
+		expect(groundIntent(ReadIntentSchema.parse({}), brief).classics).toBeNull();
+	});
+
 	test("a reversed era is put in order", () => {
 		const intent = groundIntent(
 			ReadIntentSchema.parse({ era: { start: 1999, end: 1990 } }),

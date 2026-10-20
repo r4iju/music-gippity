@@ -8,7 +8,7 @@ import {
 import { MAINSTREAM_LISTENERS, popularityBudget } from "~/lib/popularity";
 import { PURPOSE, PURPOSES, type Purpose } from "~/lib/purpose";
 import { SPOTIFY_SCOPES } from "~/lib/spotify-scopes";
-import { surplusFor } from "~/server/api/engines/common";
+import { CLASSICS_INSTRUCTION, surplusFor } from "~/server/api/engines/common";
 import { gatherEvidence } from "~/server/api/evidence";
 import { otherEngine } from "~/server/api/rerank";
 import type { EvalCase } from "../evals/cases";
@@ -3593,20 +3593,118 @@ describe("playlist generation core", () => {
 			) as RerankInput;
 
 		test("each creativity sets a ceiling and Room sets a floor instead", () => {
-			expect(popularityBudget("safe", "discover", 10)).toBeNull();
-			expect(popularityBudget("balanced", "discover", 10)).toEqual({
+			expect(popularityBudget("safe", "discover", 10, null)).toBeNull();
+			expect(popularityBudget("balanced", "discover", 10, null)).toEqual({
 				maxMainstream: 6,
 				minMainstream: null,
 			});
-			expect(popularityBudget("adventurous", "comfort", 10)).toEqual({
+			expect(popularityBudget("adventurous", "comfort", 10, null)).toEqual({
 				maxMainstream: 3,
 				minMainstream: null,
 			});
 			for (const creativity of CREATIVITY_LEVELS)
-				expect(popularityBudget(creativity, "room", 9)).toEqual({
+				expect(popularityBudget(creativity, "room", 9, null)).toEqual({
 					maxMainstream: null,
 					minMainstream: 5,
 				});
+		});
+
+		test("a classics request lifts the ceiling at every creativity and keeps Room's floor", () => {
+			const classics = { classics: { quote: "greatest hits" } };
+			for (const creativity of CREATIVITY_LEVELS) {
+				for (const purpose of ["discover", "comfort"] as const)
+					expect(
+						popularityBudget(creativity, purpose, 10, classics),
+					).toBeNull();
+				expect(popularityBudget(creativity, "room", 9, classics)).toEqual({
+					maxMainstream: null,
+					minMainstream: 5,
+				});
+			}
+			expect(
+				popularityBudget("adventurous", "discover", 10, { classics: null }),
+			).toEqual({ maxMainstream: 3, minMainstream: null });
+		});
+
+		describe("classics request", () => {
+			const BRIEF = "The best 80s disco hits for a kitchen party";
+			const classicsRead = () =>
+				geminiStream(
+					JSON.stringify({
+						genres: ["disco"],
+						era: { start: 1980, end: 1989 },
+						classics: { quote: "best 80s disco hits" },
+					}),
+				);
+			const famous = Object.fromEntries(SIX.map((artist) => [artist, HIT]));
+			const fakes = () =>
+				installFakeFetch({
+					gemini: () => geminiStream(curate("Golf")),
+					intent: classicsRead,
+					spotify,
+					lastfm: listeners({ ...famous, Golf: 100 }),
+					library: () =>
+						savedTracks(
+							["Alpha", "Bravo", "Charlie"].map((artist) => ({
+								id: `id-${artist}`,
+								artist,
+							})),
+						),
+				});
+			const generate = (body: Record<string, unknown> = {}) =>
+				create({
+					prompt: BRIEF,
+					purpose: "discover",
+					creativity: "adventurous",
+					...body,
+				});
+			const curatorPrompt = (fake: { requests: RecordedRequest[] }) =>
+				providerCalls(fake, PROVIDER_HOST.gemini)
+					.map(geminiPrompt)
+					.find((p) => p?.startsWith("Build a")) ?? "";
+
+			test("under Discover and Adventurous it keeps more than three mainstream recordings and reports an uncapped novelty budget", async () => {
+				const fake = fakes();
+				const lines = await generate();
+				expect(lines[1]).toMatchObject({
+					kind: "intent",
+					intent: { classics: { quote: "best 80s disco hits" } },
+				});
+				expect(slots(lines).map((s) => [s.artist, s.origin])).toEqual(
+					SIX.map((artist) => [artist, "pick"]),
+				);
+				expect(popularityLine(lines)).toMatchObject({
+					status: "uncapped",
+					mainstream: 6,
+				});
+				expect(lines.find((line) => line.kind === "budget")).toEqual({
+					kind: "budget",
+					status: "uncapped",
+					known: 3,
+					byKnownArtist: 3,
+				});
+				expect(rerankInput(fake).popularityBudget).toBeNull();
+				expect(curatorPrompt(fake)).toContain(CLASSICS_INSTRUCTION);
+			});
+
+			test("forced off by the settings, the generation reads no classics request and keeps today's budgets", async () => {
+				const fake = fakes();
+				const lines = await generate({ classics: "off" });
+				expect(lines[1]).toMatchObject({
+					kind: "intent",
+					intent: { genres: ["disco"], classics: null },
+				});
+				expect(popularityLine(lines)).toMatchObject({
+					status: "breached",
+					budget: { maxMainstream: 3, minMainstream: null },
+				});
+				expect(lines.find((line) => line.kind === "budget")).toMatchObject({
+					status: "held",
+					budget: { knownTracks: 2, knownArtists: 2 },
+					known: 2,
+				});
+				expect(curatorPrompt(fake)).not.toContain(CLASSICS_INSTRUCTION);
+			});
 		});
 
 		test("Adventurous keeps the first three mainstream picks and swaps later ones for pool songs counted below the threshold, never uncounted ones", async () => {

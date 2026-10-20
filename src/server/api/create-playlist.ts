@@ -25,7 +25,7 @@ import {
 	playlistPrompt,
 } from "~/server/api/engines/common";
 import { gatherEvidence } from "~/server/api/evidence";
-import { readIntent } from "~/server/api/intent";
+import { readRequestIntent } from "~/server/api/intent";
 import { familiarityOf, fetchKnown, type KnownSet } from "~/server/api/known";
 import { type Listener, spotifyListener } from "~/server/api/listener";
 import {
@@ -143,14 +143,14 @@ export async function generatePlaylistStream(
 	const { prompt, trackCount, creativity, engine, purpose } = validatedData;
 
 	const playlistId = context.playlistId ?? uuidv4();
-	const budget = noveltyBudget(purpose, trackCount);
 	// The known set is read alongside the intent. A capped purpose filters
 	// known artists out of the candidate lookups, which then wait for it;
 	// otherwise only the songs need it, so it is awaited once the stream
 	// starts. It never reaches an engine.
 	const knownRead = fetchKnown(account, userId);
-	const intent = await readIntent(prompt, signal, userId);
+	const intent = await readRequestIntent(validatedData, signal, userId);
 	signal.throwIfAborted();
+	const budget = noveltyBudget(purpose, trackCount, intent);
 	const avoidRead = budget
 		? knownRead.then((known) => avoidedArtists(known.set))
 		: null;
@@ -165,7 +165,7 @@ export async function generatePlaylistStream(
 			creativity,
 			avoid,
 			// Drawn for the requested length: nothing has resolved yet.
-			popularity: popularityBudget(creativity, purpose, trackCount),
+			popularity: popularityBudget(creativity, purpose, trackCount, intent),
 		}),
 	);
 	signal.throwIfAborted();
@@ -202,6 +202,7 @@ export async function generatePlaylistStream(
 			purpose,
 			candidateArtists: search?.artists,
 			candidateTracks: search?.tracks,
+			classics: Boolean(intent?.classics),
 		}),
 		temperature: CREATIVITY[creativity].temperature,
 	});
@@ -521,6 +522,7 @@ export async function generatePlaylistStream(
 				creativity,
 				purpose,
 				[...songs.values()].filter((song) => song.songId).length,
+				intent,
 			);
 			const popularitySwaps = popularity
 				? await enforcePopularityBudget({

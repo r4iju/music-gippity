@@ -56,6 +56,12 @@ export function intentChips(intent: Intent): Chip[] {
 			label: "Whole album",
 			quote: intent.album.quote,
 		});
+	if (intent.classics)
+		chips.push({
+			key: "classics",
+			label: "Classics request",
+			quote: intent.classics.quote,
+		});
 	// The reader may repeat a value; keys must still be unique.
 	const seen = new Map<string, number>();
 	return chips.map((chip) => {

@@ -72,6 +72,7 @@ class CheckingSession {
 		this.budget = noveltyBudget(
 			this.settings.purpose,
 			this.settings.trackCount,
+			research.intent,
 		);
 		this.caps = new SlotCaps(research.intent);
 		state.songs = state.songs.map((song) => annotateRecording(song, research));
@@ -318,6 +319,7 @@ export async function repairChecked(
 		session.settings.creativity,
 		session.settings.purpose,
 		state.songs.filter((song) => song.songId).length,
+		research.intent,
 	);
 	const popularSwaps = popularity
 		? await enforcePopularityBudget({
@@ -364,6 +366,7 @@ export async function rerankChecked(
 		creativity,
 		purpose,
 		state.songs.filter((song) => song.songId).length,
+		research.intent,
 	);
 	const familiar = (song: SourcedSong) =>
 		session.known

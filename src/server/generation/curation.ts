@@ -44,6 +44,7 @@ export async function curatePicks(
 			purpose,
 			candidateArtists: search.artists,
 			candidateTracks: search.tracks,
+			classics: Boolean(research.intent?.classics),
 		}),
 		temperature: CREATIVITY[creativity].temperature,
 	});
