@@ -22,6 +22,8 @@ export interface ReplacementBrief {
 	currentSongs: { artist: string; title: string }[];
 	avoidedSongs: string[];
 	purpose: Purpose;
+	/** The playlist's effective intent reads a classics request. */
+	classics: boolean;
 }
 
 export type Suggestion = { artist: string; title: string };

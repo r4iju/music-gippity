@@ -13,6 +13,9 @@ export interface CreativityDefinition {
 	temperature: number;
 	// Appended to the brief; tells the curator how far from the obvious to go.
 	instruction: string;
+	// Replaces `instruction` under a classics request: the same reach, without
+	// a ceiling on widely known tracks or a quota of artists nobody knows.
+	classicsInstruction: string;
 }
 
 export const CREATIVITY = {
@@ -22,6 +25,8 @@ export const CREATIVITY = {
 		temperature: 0.4,
 		instruction:
 			"Lean towards recognisable, widely loved tracks; at most a couple of deeper cuts.",
+		classicsInstruction:
+			"Stay with the most recognisable, widely loved tracks of the brief's scope.",
 	},
 	balanced: {
 		label: "Balanced",
@@ -29,6 +34,8 @@ export const CREATIVITY = {
 		temperature: 0.8,
 		instruction:
 			"Mix a few recognisable anchors with deeper cuts, including at least two artists most listeners would not know.",
+		classicsInstruction:
+			"Mix the most obvious hits with well-known songs a step beyond them, such as fan favourites and the second singles of the brief's scope.",
 	},
 	adventurous: {
 		label: "Adventurous",
@@ -36,5 +43,7 @@ export const CREATIVITY = {
 		temperature: 1.1,
 		instruction:
 			"Favour deep cuts, obscure artists, and adjacent scenes; keep at most three widely known tracks as anchors.",
+		classicsInstruction:
+			"Reach past the most obvious hits to the well-known songs a broad audience would still recognise, including the classics of adjacent scenes.",
 	},
 } as const satisfies Record<Creativity, CreativityDefinition>;

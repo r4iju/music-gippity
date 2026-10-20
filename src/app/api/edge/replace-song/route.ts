@@ -55,6 +55,7 @@ export async function POST(req: Request) {
 				currentSongs: data.currentSongs,
 				avoidedSongs: data.avoidedSongs,
 				purpose: data.purpose,
+				classics: Boolean(data.intent?.classics),
 			},
 			data.creativity,
 		);

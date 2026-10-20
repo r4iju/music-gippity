@@ -306,6 +306,7 @@ export async function generatePlaylistStream(
 						currentSongs: accepted,
 						avoidedSongs: rejected,
 						purpose,
+						classics: Boolean(intent?.classics),
 					},
 					creativity,
 					signal,

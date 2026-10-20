@@ -150,6 +150,7 @@ class CheckingSession {
 					.map((song) => ({ artist: song.artist, title: song.title })),
 				avoidedSongs: this.state.rejected,
 				purpose,
+				classics: Boolean(this.research.intent?.classics),
 			},
 			creativity,
 			this.signal,

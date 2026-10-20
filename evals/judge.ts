@@ -1,9 +1,9 @@
 import { z } from "zod";
-import { CREATIVITY } from "~/lib/creativity";
 import { ENGINES, type EngineId } from "~/lib/engines";
 import { PURPOSE } from "~/lib/purpose";
 import { collectEngineText, runEngine } from "~/server/api/engines";
 import {
+	creativityInstruction,
 	extractFirstJson,
 	parseChatGPTResponse,
 	parseGeminiResponse,
@@ -61,7 +61,10 @@ export async function judgePlaylist(
 	const started = performance.now();
 	const userPrompt = JSON.stringify({
 		brief: result.brief,
-		creativityInstruction: CREATIVITY[result.generation.creativity].instruction,
+		creativityInstruction: creativityInstruction(
+			result.generation.creativity,
+			Boolean(result.intent?.classics),
+		),
 		purposeInstruction: PURPOSE[result.generation.purpose].instruction,
 		trackCriteria: result.case.trackCriteria,
 		playlistCriteria: [

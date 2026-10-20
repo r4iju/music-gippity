@@ -242,6 +242,8 @@ export async function runCase(
 				purpose: evalCase.purpose,
 				candidateArtists: candidates?.artists,
 				candidateTracks: candidates?.tracks,
+				// Assigned in the stream callback, which narrowing cannot see.
+				classics: Boolean((intent as Intent | null)?.classics),
 			}),
 		},
 		name,

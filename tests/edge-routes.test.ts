@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, mock, test } from "bun:test";
 import { CREATIVITY, CREATIVITY_LEVELS } from "~/lib/creativity";
 import { ENGINES } from "~/lib/engines";
+import type { Intent } from "~/lib/intent";
 import {
 	CandidatesEventSchema,
 	PlaylistLineSchema,
@@ -4122,6 +4123,74 @@ describe("playlist generation core", () => {
 					known: 2,
 				});
 				expect(curatorPrompt(fake)).not.toContain(CLASSICS_INSTRUCTION);
+				expect(curatorPrompt(fake)).toContain(
+					CREATIVITY.adventurous.instruction,
+				);
+			});
+
+			test("at every creativity the curator is told how far to stray without a known-track ceiling or an obscure-artist quota", async () => {
+				const reach: string[] = [];
+				for (const creativity of CREATIVITY_LEVELS) {
+					const fake = fakes();
+					await generate({ creativity });
+					const prompt = curatorPrompt(fake);
+					expect(prompt).toContain(CLASSICS_INSTRUCTION);
+					expect(prompt).not.toContain(CREATIVITY[creativity].instruction);
+					expect(prompt).not.toMatch(
+						/at most|widely known tracks as anchors|would not know/,
+					);
+					expect(prompt).toContain(CREATIVITY[creativity].classicsInstruction);
+					reach.push(CREATIVITY[creativity].classicsInstruction);
+				}
+				expect(new Set(reach).size).toBe(CREATIVITY_LEVELS.length);
+			});
+
+			test("the eval report saves the classics prompt the curator was sent", async () => {
+				const fake = fakes();
+				const result = await runCase(
+					{
+						id: "classics",
+						brief: BRIEF,
+						creativity: "adventurous",
+						purpose: "discover",
+						trackCount: 6,
+						trackCriteria: [],
+						playlistCriteria: [],
+					},
+					"gemini",
+				);
+				expect(curatorPrompt(fake)).toContain(CLASSICS_INSTRUCTION);
+				expect(result.generation.userPrompt).toBe(curatorPrompt(fake));
+			});
+
+			test("a replacement for a missing pick is asked for as a classics request at the same reach", async () => {
+				const fake = installFakeFetch({
+					gemini: (p) =>
+						geminiStream(
+							p.startsWith("Build a")
+								? picks(["Kavinsky", "Nightcall"], ["The Midnight", "Sunset"])
+								: picks(["Boney M.", "Rasputin"]),
+						),
+					intent: classicsRead,
+					spotify: (query) =>
+						query.includes("Kavinsky") ? spotifyNoMatch() : spotifyMatch(query),
+				});
+				await readNdjson(
+					await createPlaylist(
+						post("/api/edge/create-playlist", {
+							...playlistBody("gemini", "adventurous"),
+							prompt: BRIEF,
+						}),
+					),
+				);
+				const replacement = providerCalls(fake, PROVIDER_HOST.gemini)
+					.map(geminiPrompt)
+					.find((p) => p?.includes("Suggest ONE new song"));
+				expect(replacement).toContain(CLASSICS_INSTRUCTION);
+				expect(replacement).toContain(
+					CREATIVITY.adventurous.classicsInstruction,
+				);
+				expect(replacement).not.toContain(CREATIVITY.adventurous.instruction);
 			});
 		});
 
@@ -5458,6 +5527,50 @@ describe("POST /api/edge/replace-song", () => {
 		expect(call?.body.generationConfig).toMatchObject({
 			temperature: CREATIVITY.safe.temperature,
 		});
+	});
+
+	test("asks for the replacement as a classics request when the playlist was read as one, and not otherwise", async () => {
+		const read: Intent = {
+			genres: ["disco"],
+			era: null,
+			mood: null,
+			energy: null,
+			language: null,
+			vocalRule: { rule: "none", quote: null },
+			exclusions: [],
+			mustInclude: [],
+			album: null,
+			classics: { quote: "best 80s disco hits" },
+			difficulty: "easy",
+		};
+		const prompts: string[] = [];
+		for (const intent of [read, { ...read, classics: null }, null]) {
+			const fake = installFakeFetch({
+				gemini: () => geminiStream('{"artist":"Boney M.","title":"Rasputin"}'),
+			});
+			await replaceSong(
+				post("/api/edge/replace-song", {
+					...body,
+					creativity: "balanced",
+					intent,
+				}),
+			);
+			prompts.push(
+				geminiPrompt(
+					providerCalls(fake, PROVIDER_HOST.gemini).find((c) =>
+						geminiPrompt(c)?.includes("Suggest ONE new song"),
+					),
+				) ?? "",
+			);
+		}
+		const [classics, plain, unread] = prompts;
+		expect(classics).toContain(CLASSICS_INSTRUCTION);
+		expect(classics).toContain(CREATIVITY.balanced.classicsInstruction);
+		expect(classics).not.toContain(CREATIVITY.balanced.instruction);
+		for (const prompt of [plain, unread]) {
+			expect(prompt).not.toContain(CLASSICS_INSTRUCTION);
+			expect(prompt).toContain(CREATIVITY.balanced.instruction);
+		}
 	});
 
 	test("returns 500 when the provider output has no JSON", async () => {
