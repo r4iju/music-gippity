@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { ENGINE_IDS } from "./engines";
 import { EvidenceSchema, HARD_RULES, VIOLATION_SOURCES } from "./evidence";
-import { IntentSchema, ReadIntentSchema } from "./intent";
+import { IntentSchema } from "./intent";
 import { PURPOSES } from "./purpose";
 import { ResolutionSchema } from "./resolution";
 
@@ -327,11 +327,11 @@ const SourceCountsSchema = z.object(
 
 /**
  * The one widened lookup round a thin pool gets. `plan` is the soft half
- * the widened plan may broaden: the MusicBrainz scene (tags and area), the
- * genres whose Last.fm charts it adds, and the era, which no lookup reads
- * yet and so is checked but never named. A plan that alters a hard rule or
- * the language, or moves an era end more than five years out, is
- * `discarded` with the reason in `error`. `pool` counts the widened
+ * the widened plan may broaden: the MusicBrainz scene (tags and area) and the
+ * genres whose Last.fm charts it adds. The era never widens, because no
+ * candidate lookup filters by it; plans saved before that may still carry
+ * one. A plan that alters a hard rule or the language is `discarded` with
+ * the reason in `error`. `pool` counts the widened
  * candidates that entered the pool after the originals, `offered` those
  * offered, and `label` is the listener's chip, null when it offered none.
  */
@@ -345,7 +345,10 @@ export const WideningSchema = z.object({
 			tags: z.array(z.string()),
 			area: z.string().nullable(),
 			genres: z.array(z.string()),
-			era: ReadIntentSchema.shape.era,
+			era: z
+				.object({ start: z.number().nullable(), end: z.number().nullable() })
+				.nullable()
+				.optional(),
 		})
 		.nullable(),
 	musicbrainz: z.array(ArtistSearchSchema),

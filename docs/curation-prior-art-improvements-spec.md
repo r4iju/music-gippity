@@ -134,11 +134,12 @@ robustness checks on the judge.
    - AC9.2: The widened round comes from one extra scene-plan request that
      receives the original plan and the fact that it found too few
      candidates; the request contains no Spotify content.
-   - AC9.3: Widening may broaden scene and area (for example a country to
-     its region) and genres (a subgenre to its parent), and may extend the
-     era by at most five years at each end.
+   - AC9.3: Widening covers scene, area (for example a country to its
+     region) and genres (a subgenre to its parent). The era is never
+     widened, because candidate lookups do not filter by era.
    - AC9.4: Widening never changes the vocal rule, exclusions, must-include
      artists or language; a widened plan that touches them is discarded.
+     The era is neither widened nor recorded in the widened plan.
    - AC9.5: Widened candidates are merged after the original ones, with the
      usual one-per-artist and exclusion filtering.
    - AC9.6: If the widened round fails or also finds too few, generation
@@ -146,7 +147,7 @@ robustness checks on the judge.
 10. As a listener, I want to see when my brief was widened, so that I can
     tell the app did not quite find what I asked for.
     - AC10.1: The intent chips show a "Widened to …" chip naming the widened
-      scene, genre or era.
+      scene, area or genre.
     - AC10.2: No chip appears when no widening happened or the widened round
       contributed no candidates.
 11. As a listener, I want replacement and repair to stay strict, so that
@@ -266,7 +267,9 @@ robustness checks on the judge.
 - The widened plan is requested with the same scene-plan schema plus the
   original plan and a reason the app writes. The app compares the widened
   plan with the intent and discards it if it alters any hard rule or the
-  language, or extends the era past five years at either end.
+  language. Widening covers scene, area and genres; the era is never widened
+  because candidate lookups do not filter by era, so the widened plan does
+  not carry one (results saved earlier may, and still parse).
 - The candidates event records whether widening ran, the widened plan, what
   it found, and a short listener-facing label for the chip.
 - Replacement, repair and budget swaps keep reading the original intent.

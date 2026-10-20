@@ -2245,14 +2245,14 @@ describe("playlist generation core", () => {
 					artists: [{ name: "Kavinsky" }, { name: "Carpenter Brut" }],
 					tracks: [{ artist: "Perturbator", title: "Future Club" }],
 				});
+				expect(geminiSystem(fake.scenePlans[1]) ?? "").not.toMatch(/\bera\b/);
+				expect(widening(event)?.plan).toEqual({
+					tags: ["synthwave", "electronic"],
+					area: "Europe",
+					genres: ["synthwave", "electronic"],
+				});
 				expect(widening(event)).toMatchObject({
 					status: "ok",
-					plan: {
-						tags: ["synthwave", "electronic"],
-						area: "Europe",
-						genres: ["synthwave", "electronic"],
-						era: { start: 1978, end: 1992 },
-					},
 					musicbrainz: [
 						{
 							source: "tag",
@@ -2283,10 +2283,6 @@ describe("playlist generation core", () => {
 					{ vocalRule: { rule: "no-vocals", quote: null } },
 				],
 				["changes the language", { language: "English" }],
-				[
-					"extends the era by more than five years",
-					{ era: { start: 1974, end: 1989 } },
-				],
 			] as const)
 				test(`a widened plan that ${label} is discarded`, async () => {
 					const { fake, event } = await run({
@@ -2304,6 +2300,30 @@ describe("playlist generation core", () => {
 						label: null,
 					});
 				});
+
+			test("a widened plan's era is neither checked nor recorded, since no lookup reads it, and saved plans with one still parse", async () => {
+				const { event } = await run({
+					...thin,
+					scene: widenedScene(restated({ era: { start: 1950, end: 2020 } })),
+				});
+				expect(widening(event)).toMatchObject({
+					status: "ok",
+					label: "Widened to Europe, electronic",
+				});
+				expect(widening(event)?.plan).not.toHaveProperty("era");
+				const saved = CandidatesEventSchema.parse(event);
+				const older = {
+					...saved,
+					widening: {
+						...saved.widening,
+						plan: {
+							...saved.widening?.plan,
+							era: { start: 1978, end: 1992 },
+						},
+					},
+				};
+				expect(CandidatesEventSchema.safeParse(older).success).toBe(true);
+			});
 
 			test("a widened round that fails or finds nothing new leaves generation as it was, with no chip", async () => {
 				for (const overrides of [
