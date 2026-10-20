@@ -12,8 +12,9 @@ UK garage, a 30-track continuous workout, instrumental study, and three probes
 for known weak spots: French rap (non-English rap), amapiano (a non-Western
 scene) and 70s disco classics (a classics request under Discover). The scene
 probes check that the artists belong to the scene and that the description
-does not call a scene mainstream where it comes from niche, regional or
-"world"; the classics probe checks that the recordings are widely known.
+does not frame a scene mainstream where it comes from as niche, obscure or
+"world music", while accurate geographic context (where the scene comes from)
+is fine; the classics probe checks that the recordings are widely known.
 Briefs and criteria live in `cases.ts`.
 
 ```sh

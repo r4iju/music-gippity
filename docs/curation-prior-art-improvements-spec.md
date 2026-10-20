@@ -218,8 +218,9 @@ robustness checks on the judge.
       brief, and a classics-request brief under Discover.
     - AC19.2: The classics case's criteria check that recordings are widely
       known; the scene cases' criteria check scene fidelity and that the
-      description does not call a mainstream non-English scene niche,
-      regional or "world".
+      description does not frame a mainstream non-English scene as niche,
+      obscure or "world music"; accurate geographic context (where the scene
+      comes from) is not a mismatch.
 20. As a maintainer, I want to know whether the judge's verdicts depend on
     order or wording, so that I know how far to trust them.
     - AC20.1: An opt-in mode re-judges a saved run with the track order

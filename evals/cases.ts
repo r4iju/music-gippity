@@ -26,7 +26,7 @@ const industrialBrief =
  */
 const sceneFidelity = (scene: string): Criterion => ({
 	id: "scene",
-	requirement: `Every artist belongs to ${scene}, identified by the artists rather than by language or titles alone; mark uncertain when membership is unknown. The scene is mainstream where it comes from: a description calling it niche, regional or "world" music is a mismatch.`,
+	requirement: `Every artist belongs to ${scene}, identified by the artists rather than by language or titles alone; mark uncertain when membership is unknown. The scene is mainstream where it comes from: a description that frames it as niche, obscure, underground or "world music" is a mismatch. Accurate geographic context (naming the country, city or region the scene comes from) is fine and is not a mismatch.`,
 });
 
 export const CASES: EvalCase[] = [
