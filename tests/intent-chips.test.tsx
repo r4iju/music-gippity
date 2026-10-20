@@ -16,6 +16,7 @@ const INTENT: Intent = {
 	],
 	mustInclude: [{ artist: "Kavinsky", quote: "con Kavinsky" }],
 	album: { quote: "el álbum entero" },
+	classics: null,
 	difficulty: "difficult",
 };
 
@@ -62,11 +63,63 @@ describe("IntentChips", () => {
 		expect(html.indexOf("For a room")).toBeLessThan(html.indexOf("synthwave"));
 	});
 
+	test("a classics request shows its chip with the quote as tooltip and an undo", () => {
+		const classics: Intent = {
+			...INTENT,
+			classics: { quote: "los grandes clásicos" },
+		};
+		expect(intentChips(classics).at(-1)).toMatchObject({
+			key: "classics",
+			label: "Classics request",
+			quote: "los grandes clásicos",
+		});
+		const html = renderToStaticMarkup(
+			<IntentChips intent={classics} onUndoClassics={() => {}} />,
+		);
+		expect(html).toMatch(
+			/<li title="From your brief: “los grandes clásicos”"[^>]*>Classics request<button type="button"[^>]*>Undo<\/button><\/li>/,
+		);
+		expect(html).toContain(
+			'aria-label="Undo classics request: generate again without it"',
+		);
+	});
+
+	test("no classics chip or undo without a classics request or an intent", () => {
+		const plain = renderToStaticMarkup(
+			<IntentChips intent={INTENT} onUndoClassics={() => {}} />,
+		);
+		expect(plain).not.toContain("Classics request");
+		expect(plain).not.toContain("<button");
+		expect(
+			renderToStaticMarkup(
+				<IntentChips
+					intent={null}
+					purpose="discover"
+					onUndoClassics={() => {}}
+				/>,
+			),
+		).not.toContain("<button");
+	});
+
 	test("a failed read still shows the purpose", () => {
 		const html = renderToStaticMarkup(
 			<IntentChips intent={null} purpose="discover" />,
 		);
 		expect(html).toContain(">Discover<");
 		expect(html).not.toContain("synthwave");
+	});
+
+	test("a widened lookup is the last chip, its tooltip saying why", () => {
+		const html = renderToStaticMarkup(
+			<IntentChips intent={INTENT} widened="Widened to Europe, electronic" />,
+		);
+		expect(html).toMatch(
+			/<li title="Too few candidates matched your brief[^"]*"[^>]*>Widened to Europe, electronic<\/li><\/ul>$/,
+		);
+		expect(
+			renderToStaticMarkup(
+				<IntentChips intent={null} widened="Widened to Europe" />,
+			),
+		).toContain(">Widened to Europe<");
 	});
 });

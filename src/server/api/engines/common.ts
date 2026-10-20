@@ -23,6 +23,13 @@ Curation rules:
 - Only real, released songs by real artists that exist on Spotify. Write the artist and title exactly as Spotify lists them. Prefer the original artist over covers, live versions, or remixes unless the brief asks for them.
 - Respond with JSON only: no markdown, no code fences, no commentary before or after.`;
 
+/**
+ * For a classics request. It takes precedence over a Discover purpose and
+ * the persona's top-10 caution, while creativity still sets the reach.
+ */
+export const CLASSICS_INSTRUCTION =
+	"The brief asks for well-known music, so pick the widely known recordings of the brief's scope, songs a broad audience recognises, even if the listener may already know them. The creativity setting still decides how far beyond the most obvious ones to go.";
+
 interface PlaylistPromptProps {
 	prompt: string;
 	trackCount: number;
@@ -32,6 +39,8 @@ interface PlaylistPromptProps {
 	candidateArtists?: ArtistCandidate[];
 	/** Tracks on Last.fm's charts for the intent's genres. */
 	candidateTracks?: TrackCandidate[];
+	/** The intent read a classics request from the brief. */
+	classics?: boolean;
 }
 
 const artistList = (artists: ArtistCandidate[]): string =>
@@ -63,6 +72,7 @@ export const playlistPrompt = ({
 	purpose,
 	candidateArtists = [],
 	candidateTracks = [],
+	classics = false,
 }: PlaylistPromptProps): string => {
 	const surplus = surplusFor(trackCount);
 	const artists = candidateArtists.length
@@ -86,7 +96,7 @@ Candidates were gathered for this brief. Pick most of the playlist from them. Ad
 	const source = any ? ',"source":"..."' : "";
 	return `Build a ${trackCount}-track playlist for this brief: "${prompt}"
 
-${PURPOSE[purpose].instruction}${offered}
+${PURPOSE[purpose].instruction}${classics ? ` ${CLASSICS_INSTRUCTION}` : ""}${offered}
 
 ${CREATIVITY[creativity].instruction}
 

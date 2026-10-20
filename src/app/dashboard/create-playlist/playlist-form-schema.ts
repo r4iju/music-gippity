@@ -13,7 +13,15 @@ export const PlaylistFormSchema = z.object({
 	creativity: z.enum(CREATIVITY_LEVELS).default(DEFAULT_CREATIVITY),
 	engine: z.enum(ENGINE_IDS),
 	purpose: z.enum(PURPOSES).default(DEFAULT_PURPOSE),
+	// Set when the listener undoes a classics request: the generation drops
+	// the intent's classics reading. Absent otherwise.
+	classics: z.literal("off").optional(),
 });
+
+/** The settings for a new generation that undoes a classics request. */
+export const withClassicsOff = (
+	request: PlaylistFormInput,
+): PlaylistFormInput => ({ ...request, classics: "off" });
 
 // Everything here is interpolated into a prompt, hence the size bounds.
 const SongLabel = z.string().max(300);

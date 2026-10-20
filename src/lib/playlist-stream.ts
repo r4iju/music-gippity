@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { ENGINE_IDS } from "./engines";
 import { EvidenceSchema, HARD_RULES, VIOLATION_SOURCES } from "./evidence";
-import { IntentSchema } from "./intent";
+import { IntentSchema, ReadIntentSchema } from "./intent";
 import { PURPOSES } from "./purpose";
 import { ResolutionSchema } from "./resolution";
 
@@ -63,7 +63,6 @@ export const SongSchema = z.object({
 	artist: nonEmpty,
 	title: nonEmpty,
 	songId: z.string().nullish(),
-	previewUrl: z.string().nullish(),
 	albumImage: z.string().nullish(),
 	albumTitle: z.string().nullish(),
 	albumYear: z.number().nullish(),
@@ -327,13 +326,46 @@ const SourceCountsSchema = z.object(
 );
 
 /**
+ * The one widened lookup round a thin pool gets. `plan` is the soft half
+ * the widened plan may broaden: the MusicBrainz scene (tags and area), the
+ * genres whose Last.fm charts it adds, and the era, which no lookup reads
+ * yet and so is checked but never named. A plan that alters a hard rule or
+ * the language, or moves an era end more than five years out, is
+ * `discarded` with the reason in `error`. `pool` counts the widened
+ * candidates that entered the pool after the originals, `offered` those
+ * offered, and `label` is the listener's chip, null when it offered none.
+ */
+export const WideningSchema = z.object({
+	status: z.enum(["ok", "discarded", "error"]),
+	reason: z.string(),
+	userPrompt: z.string(),
+	raw: z.string(),
+	plan: z
+		.object({
+			tags: z.array(z.string()),
+			area: z.string().nullable(),
+			genres: z.array(z.string()),
+			era: ReadIntentSchema.shape.era,
+		})
+		.nullable(),
+	musicbrainz: z.array(ArtistSearchSchema),
+	lastfm: z.array(ArtistSearchSchema),
+	pool: SourceCountsSchema,
+	offered: z.number().int(),
+	label: z.string().nullable(),
+	error: z.string().optional(),
+});
+export type Widening = z.infer<typeof WideningSchema>;
+
+/**
  * The scene plan the curator wrote for the brief and what MusicBrainz and
  * Last.fm returned for it. `excluded` counts the hits by an artist the
  * intent rules out and `known` those by an artist a budgeted playlist
  * keeps off, duplicates included in both. `pool` counts each source's
  * candidates after filtering, capped at five a track; `artists` and
  * `tracks` are the sample offered to the curator, drawn from the sources in
- * turn under the popularity budget.
+ * turn under the popularity budget, the original round's before the
+ * widened round's. `pool`, `excluded` and `known` count both rounds.
  */
 export const CandidatesEventSchema = z.object({
 	kind: z.literal("candidates"),
@@ -361,6 +393,8 @@ export const CandidatesEventSchema = z.object({
 		counted: z.number().int(),
 		mainstream: z.number().int(),
 	}),
+	/** Absent when the pool was not thin, and in results saved before widening. */
+	widening: WideningSchema.optional(),
 	error: z.string().optional(),
 });
 export type CandidatesEvent = z.infer<typeof CandidatesEventSchema>;

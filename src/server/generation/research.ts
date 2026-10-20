@@ -84,13 +84,14 @@ export async function retrieveCandidates(
 		engine: settings.engine,
 		trackCount: settings.trackCount,
 		creativity: settings.creativity,
-		avoid: noveltyBudget(settings.purpose, settings.trackCount)
+		avoid: noveltyBudget(settings.purpose, settings.trackCount, intent)
 			? avoidedArtists(known.set)
 			: null,
 		popularity: popularityBudget(
 			settings.creativity,
 			settings.purpose,
 			settings.trackCount,
+			intent,
 		),
 		strict: true,
 	});

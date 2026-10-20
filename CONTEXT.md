@@ -11,7 +11,7 @@ The listener's free-text request for a playlist, exactly as written or as assemb
 _Avoid_: prompt (the rendered LLM input), query, request
 
 **Intent**:
-The structured reading of a brief: genres, era, mood or activity, energy, language or scene, vocal rule, exclusions, must-include artists, album request.
+The structured reading of a brief: genres, era, mood or activity, energy, language or scene, vocal rule, exclusions, must-include artists, album request, classics request.
 _Avoid_: constraints, tags, criteria, filters
 
 **Hard rule**:
@@ -24,12 +24,16 @@ The intent's flag that a brief needs verified recordings: set when it has an exc
 **Soft preference**:
 An intent field that guides selection and order without disqualifying a recording, such as mood, energy, or scene share.
 
+**Classics request**:
+The intent's reading that the brief literally asks for well-known music, such as "best 80s disco hits", "classics" or "anthems", kept in the brief's own wording. A soft preference: it lifts the mainstream ceiling and, under Discover, the known-track cap, while hard rules and For a room's floor still apply. A brief that only names a genre or era is not one.
+_Avoid_: hits mode, popular mode
+
 **Creativity**:
 The listener's safe, balanced, or adventurous setting; it decides how far picks may stray from the obvious.
 _Avoid_: temperature (an implementation of creativity), discovery level
 
 **Taste anchors**:
-The listener's top Spotify artists, offered to the curator as context to anchor to, never to copy.
+Artists the listener picks in the wizard, from suggestions the curator makes for the brief's mood and genres, written into the brief as artists to highlight. They are never read from the listener's Spotify account: nothing read from Spotify reaches an engine.
 _Avoid_: personalization data, listening history, favourites
 
 ### Curating
@@ -59,7 +63,7 @@ An artist and title the curator names from memory, before Spotify confirms the r
 _Avoid_: suggestion, song, track
 
 **Candidate**:
-A recording found by a curator-written Spotify search before generation and offered to the curator as verified available.
+An artist from MusicBrainz (by tag, area or label) or a track from Last.fm's tag charts, looked up for the brief before generation and offered to the curator to pick from. Candidates come from open databases, never from Spotify.
 _Avoid_: pool (that is post-generation), option
 
 **Slot**:

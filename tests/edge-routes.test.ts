@@ -8,7 +8,8 @@ import {
 import { MAINSTREAM_LISTENERS, popularityBudget } from "~/lib/popularity";
 import { PURPOSE, PURPOSES, type Purpose } from "~/lib/purpose";
 import { SPOTIFY_SCOPES } from "~/lib/spotify-scopes";
-import { surplusFor } from "~/server/api/engines/common";
+import type { CandidatePool } from "~/server/api/candidates";
+import { CLASSICS_INSTRUCTION, surplusFor } from "~/server/api/engines/common";
 import { gatherEvidence } from "~/server/api/evidence";
 import { otherEngine } from "~/server/api/rerank";
 import type { EvalCase } from "../evals/cases";
@@ -46,6 +47,7 @@ import {
 	spotifyTracks,
 	titleOf,
 	topTracks,
+	type WidenRequest,
 } from "./fake-providers";
 import {
 	appSongFailure,
@@ -572,6 +574,142 @@ describe("playlist generation core", () => {
 			const songs = resolved(await readNdjson(res));
 
 			expect(songs.map((s) => s.songId)).toEqual(["original"]);
+		});
+
+		const searchMarkets = (fake: { requests: RecordedRequest[] }) =>
+			providerCalls(fake, "api.spotify.com/v1/search").map((r) =>
+				new URL(r.url).searchParams.get("market"),
+			);
+
+		test("every search a listener's generation makes is restricted to their market", async () => {
+			const fake = installFakeFetch({
+				gemini: () =>
+					geminiStream(picks(["Kavinsky", "Nightcall"], ["Nobody", "Ghost"])),
+				spotify: (query) =>
+					query.includes("Nightcall") ? spotifyMatch(query) : spotifyNoMatch(),
+			});
+			await readNdjson(
+				await createPlaylist(
+					post("/api/edge/create-playlist", playlistBody("gemini")),
+				),
+			);
+			const replaced = installFakeFetch({
+				openai: () =>
+					openaiStream('{"artist":"Com Truise","title":"Brokendate"}'),
+			});
+			await replaceSong(
+				post("/api/edge/replace-song", {
+					playlistName: "Late Night Drive",
+					playlistDescription: "Synths for empty highways.",
+					currentSongs: [{ artist: "Kavinsky", title: "Nightcall" }],
+					avoidedSongs: [],
+					targetSongId: "song-2",
+					engine: "chatgpt",
+				}),
+			);
+
+			// The unresolved pick is retried, so there are several searches.
+			const markets = [...searchMarkets(fake), ...searchMarkets(replaced)];
+			expect(markets.length).toBeGreaterThan(3);
+			expect(new Set(markets)).toEqual(new Set(["from_token"]));
+		});
+
+		test("an eval run searches the configured market, since its token has none", async () => {
+			const fake = installFakeFetch({
+				openai: () =>
+					openaiStream(
+						picks(["Kavinsky", "Nightcall"], ["The Midnight", "Sunset"]),
+					),
+			});
+			await runCase(
+				{
+					id: "market",
+					brief: "Nocturnal synthwave for a long drive",
+					creativity: "balanced",
+					purpose: "discover",
+					trackCount: 2,
+					trackCriteria: [],
+					playlistCriteria: [],
+				},
+				"chatgpt",
+				fixtureListener(
+					{
+						takenAt: "2026-09-19T00:00:00Z",
+						savedTracks: [],
+						topTracks: [],
+						recentTracks: [],
+					},
+					"SE",
+				),
+			);
+
+			const markets = searchMarkets(fake);
+			expect(markets.length).toBeGreaterThan(0);
+			expect(new Set(markets)).toEqual(new Set(["SE"]));
+		});
+
+		test("a recording Spotify marks as not playable in the market is never the resolution", async () => {
+			installFakeFetch({
+				gemini: () =>
+					geminiStream(
+						picks(
+							["Kavinsky", "Nightcall"],
+							["The Midnight", "Sunset"],
+							["Gunship", "Tech Noir"],
+						),
+					),
+				spotify: (query) => {
+					const artist = artistOf(query);
+					if (artist === "Kavinsky")
+						return spotifyTracks([
+							{ id: "greyed", name: "Nightcall", artist, playable: false },
+						]);
+					if (artist === "The Midnight")
+						return spotifyTracks([
+							{ id: "greyed-sunset", name: "Sunset", artist, playable: false },
+							{
+								id: "playable-live",
+								name: "Sunset - Live",
+								artist,
+								playable: true,
+							},
+						]);
+					// Without the field the recording is accepted as before.
+					return spotifyTracks([{ id: "unmarked", name: "Tech Noir", artist }]);
+				},
+			});
+			const res = await createPlaylist(
+				post("/api/edge/create-playlist", {
+					...playlistBody("gemini"),
+					trackCount: 3,
+				}),
+			);
+			const songs = (await readNdjson(res)).filter((l) => l.kind === "song");
+			const last = (title: string) =>
+				songs.filter((s) => s.title === title).at(-1);
+
+			expect(songs.map((s) => s.songId)).not.toContain("greyed");
+			expect(songs.map((s) => s.songId)).not.toContain("greyed-sunset");
+			expect(last("Nightcall")?.resolution).toEqual({
+				tier: "unresolved",
+				drift: false,
+				isrc: null,
+			});
+			expect(last("Sunset")?.songId).toBe("playable-live");
+			expect(last("Tech Noir")?.songId).toBe("unmarked");
+		});
+
+		test("a resolved song carries no preview URL", async () => {
+			installFakeFetch({
+				gemini: () => geminiStream(picks(["Kavinsky", "Nightcall"])),
+			});
+			const res = await createPlaylist(
+				post("/api/edge/create-playlist", playlistBody("gemini")),
+			);
+			const songs = (await readNdjson(res)).filter((l) => l.kind === "song");
+
+			expect(songs.some((s) => s.songId)).toBe(true);
+			for (const song of songs) expect(song).not.toHaveProperty("previewUrl");
 		});
 
 		test("eval results and the report carry a resolution funnel and drift count", async () => {
@@ -1771,6 +1909,11 @@ describe("playlist generation core", () => {
 			]);
 		});
 
+		/** Scene plans for the brief itself; a thin pool also asks for a widened one. */
+		const originalPlans = (fake: { scenePlans: RecordedRequest[] }) =>
+			fake.scenePlans.filter(
+				(call) => !("widen" in JSON.parse(geminiPrompt(call) ?? "{}")),
+			);
 		const easy = () => geminiStream(JSON.stringify({ genres: ["synthwave"] }));
 		const create = async (
 			body: Record<string, unknown>,
@@ -1800,7 +1943,7 @@ describe("playlist generation core", () => {
 		] as const)
 			test(`${label} plans the scene even when the intent is easy`, async () => {
 				const { fake, lines } = await create(body);
-				expect(fake.scenePlans).toHaveLength(1);
+				expect(originalPlans(fake)).toHaveLength(1);
 				const event = CandidatesEventSchema.parse(
 					lines.find((line) => line.kind === "candidates"),
 				);
@@ -1827,7 +1970,7 @@ describe("playlist generation core", () => {
 				{ purpose: "discover" },
 				{ intent: () => geminiStream("") },
 			);
-			expect(fake.scenePlans).toHaveLength(1);
+			expect(originalPlans(fake)).toHaveLength(1);
 			expect(generationPrompt(fake)).toContain("Artists MusicBrainz lists");
 		});
 
@@ -2032,6 +2175,161 @@ describe("playlist generation core", () => {
 				overlap: "n/a",
 			}).split(" | ");
 			expect(row[header.indexOf("from candidates")]).toBe("skipped");
+		});
+
+		describe("widening", () => {
+			const ORIGINAL = { tags: ["synthwave"], area: "Spain", labels: [] };
+			/** The intent as the widened plan restates it, broadened where allowed. */
+			const restated = (changes: Record<string, unknown> = {}) => ({
+				genres: ["synthwave", "electronic"],
+				era: { start: 1978, end: 1992 },
+				language: null,
+				vocalRule: { rule: "none", quote: null },
+				exclusions: [
+					{ kind: "artist", value: "Daft Punk", quote: "nada de Daft Punk" },
+				],
+				mustInclude: [],
+				...changes,
+			});
+			const widenedScene =
+				(intent: Record<string, unknown> = restated()) =>
+				(_brief: string, widen?: WidenRequest) =>
+					JSON.stringify(
+						widen
+							? { tags: ["synthwave", "electronic"], area: "Europe", intent }
+							: ORIGINAL,
+					);
+			/** Spain's synthwave is one act; Europe's adds two more, one excluded. */
+			const thin = {
+				scene: widenedScene(),
+				musicbrainzSearch: (_entity: string, query: string) =>
+					musicbrainzArtists(
+						query.includes('"Europe"')
+							? [
+									...KAVINSKY,
+									{ id: "mb-brut", name: "Carpenter Brut" },
+									{ id: "mb-daft", name: "Daft Punk" },
+								]
+							: KAVINSKY,
+					),
+				lastfm: lastfmApi({
+					charts: { electronic: [["Perturbator", "Future Club"]] },
+				}),
+			};
+			const widening = (event: Record<string, unknown> | undefined) =>
+				CandidatesEventSchema.parse(event).widening;
+
+			test("too few candidates widen the scene once, and what it finds follows the originals", async () => {
+				const { fake, lines, event } = await run({
+					...thin,
+					// Released inside the widened era but outside the brief's.
+					musicbrainz: (isrc) =>
+						musicbrainzRecording({
+							mbid: `mb-${isrc}`,
+							firstReleaseDate: isrc.toLowerCase().includes("midnight")
+								? "1991-01-01"
+								: "1985-01-01",
+						}),
+				});
+				expect(fake.scenePlans).toHaveLength(2);
+				const request = JSON.parse(geminiPrompt(fake.scenePlans[1]) ?? "{}");
+				expect(request).toMatchObject({
+					task: "plan-scene",
+					brief: BRIEF,
+					widen: { plan: ORIGINAL, reason: expect.any(String) },
+				});
+				expect(event).toMatchObject({
+					status: "ok",
+					excluded: 1,
+					artists: [{ name: "Kavinsky" }, { name: "Carpenter Brut" }],
+					tracks: [{ artist: "Perturbator", title: "Future Club" }],
+				});
+				expect(widening(event)).toMatchObject({
+					status: "ok",
+					plan: {
+						tags: ["synthwave", "electronic"],
+						area: "Europe",
+						genres: ["synthwave", "electronic"],
+						era: { start: 1978, end: 1992 },
+					},
+					musicbrainz: [
+						{
+							source: "tag",
+							query: '(tag:"synthwave" OR tag:"electronic") AND area:"Europe"',
+							hits: 3,
+						},
+					],
+					lastfm: [{ query: "tag.getTopTracks electronic", hits: 1 }],
+					offered: 2,
+					label: "Widened to Europe, electronic",
+				});
+				const prompt = generationPrompt(fake) ?? "";
+				expect(prompt.indexOf("Kavinsky")).toBeLessThan(
+					prompt.indexOf("Carpenter Brut"),
+				);
+				expect(prompt).not.toContain("Daft Punk -");
+				// Repair still holds the brief's own era, not the widened one.
+				expect(lines.find((l) => l.kind === "repair")).toMatchObject({
+					rule: "era",
+					detail: expect.stringContaining("outside 1980–1989"),
+				});
+			});
+
+			for (const [label, change] of [
+				["drops an exclusion", { exclusions: [] } as Record<string, unknown>],
+				[
+					"changes the vocal rule",
+					{ vocalRule: { rule: "no-vocals", quote: null } },
+				],
+				["changes the language", { language: "English" }],
+				[
+					"extends the era by more than five years",
+					{ era: { start: 1974, end: 1989 } },
+				],
+			] as const)
+				test(`a widened plan that ${label} is discarded`, async () => {
+					const { fake, event } = await run({
+						...thin,
+						scene: widenedScene(restated(change)),
+					});
+					expect(fake.scenePlans).toHaveLength(2);
+					expect(
+						fake.requests.filter((r) => r.url.includes("%22Europe%22")),
+					).toEqual([]);
+					expect(event).toMatchObject({ artists: [{ name: "Kavinsky" }] });
+					expect(CandidatesEventSchema.parse(event).artists).toHaveLength(1);
+					expect(widening(event)).toMatchObject({
+						status: "discarded",
+						label: null,
+					});
+				});
+
+			test("a widened round that fails or finds nothing new leaves generation as it was, with no chip", async () => {
+				for (const overrides of [
+					{
+						scene: (_brief: string, widen?: WidenRequest) => {
+							if (widen) throw new Error("planner down");
+							return JSON.stringify(ORIGINAL);
+						},
+					},
+					{
+						musicbrainzSearch: () => musicbrainzArtists(KAVINSKY),
+						lastfm: notFound,
+					},
+				]) {
+					const { fake, lines, event } = await run({ ...thin, ...overrides });
+					expect(fake.scenePlans).toHaveLength(2);
+					expect(event).toMatchObject({
+						status: "ok",
+						artists: [{ name: "Kavinsky" }],
+					});
+					expect(widening(event)?.label).toBeNull();
+					expect(slots(lines).map((s) => s.artist)).toEqual([
+						"Kavinsky",
+						"The Midnight",
+					]);
+				}
+			});
 		});
 
 		describe("MusicBrainz sources", () => {
@@ -2706,6 +3004,60 @@ describe("playlist generation core", () => {
 			]);
 		});
 
+		test("an eval can swap the candidates the curator is offered for another pool", async () => {
+			const fake = installFakeFetch({
+				intent: difficult,
+				gemini: curator,
+				...lookups,
+			});
+			let real: CandidatePool | undefined;
+			const result = await runCase(
+				{
+					id: "candidates",
+					brief: BRIEF,
+					creativity: "balanced",
+					purpose: "discover",
+					trackCount: 2,
+					trackCriteria: [],
+					playlistCriteria: [],
+				},
+				"gemini",
+				undefined,
+				(found) => {
+					real = found;
+					const artists = [
+						{
+							name: "The Midnight",
+							mbid: "mb-midnight",
+							source: "tag" as const,
+							area: null,
+							tags: ["synthwave"],
+							label: null,
+						},
+					];
+					return {
+						artists,
+						tracks: [],
+						event: { ...found.event, artists, tracks: [] },
+					};
+				},
+			);
+			expect(real?.artists.map((artist) => artist.name)).toEqual(["Kavinsky"]);
+			expect(real?.tracks.map((track) => track.artist)).toEqual(["Ulrich"]);
+			const prompt = generationPrompt(fake) ?? "";
+			expect(prompt).toContain("- The Midnight");
+			expect(prompt).not.toContain("- Kavinsky");
+			expect(prompt).not.toContain("Ulrich");
+			expect(result.generation.userPrompt).toBe(prompt);
+			expect(result.candidates?.artists.map((artist) => artist.name)).toEqual([
+				"The Midnight",
+			]);
+			expect(result.songs.map((s) => [s.artist, s.candidate ?? null])).toEqual([
+				["Kavinsky", null],
+				["The Midnight", "tag"],
+			]);
+		});
+
 		test("the eval rejects a song line without a source", () => {
 			const song = {
 				kind: "song",
@@ -3184,14 +3536,19 @@ describe("playlist generation core", () => {
 						...playlistBody("gemini"),
 						trackCount: 4,
 					}),
-					fixtureListener({
-						takenAt: "2026-09-19T00:00:00Z",
-						savedTracks: [
-							{ id: "id-Kavinsky", isrc: null, artists: ["Kavinsky"] },
-						],
-						topTracks: [],
-						recentTracks: [{ id: null, isrc: null, artists: ["The Midnight"] }],
-					}),
+					fixtureListener(
+						{
+							takenAt: "2026-09-19T00:00:00Z",
+							savedTracks: [
+								{ id: "id-Kavinsky", isrc: null, artists: ["Kavinsky"] },
+							],
+							topTracks: [],
+							recentTracks: [
+								{ id: null, isrc: null, artists: ["The Midnight"] },
+							],
+						},
+						"US",
+					),
 				),
 			);
 
@@ -3654,20 +4011,118 @@ describe("playlist generation core", () => {
 			) as RerankInput;
 
 		test("each creativity sets a ceiling and Room sets a floor instead", () => {
-			expect(popularityBudget("safe", "discover", 10)).toBeNull();
-			expect(popularityBudget("balanced", "discover", 10)).toEqual({
+			expect(popularityBudget("safe", "discover", 10, null)).toBeNull();
+			expect(popularityBudget("balanced", "discover", 10, null)).toEqual({
 				maxMainstream: 6,
 				minMainstream: null,
 			});
-			expect(popularityBudget("adventurous", "comfort", 10)).toEqual({
+			expect(popularityBudget("adventurous", "comfort", 10, null)).toEqual({
 				maxMainstream: 3,
 				minMainstream: null,
 			});
 			for (const creativity of CREATIVITY_LEVELS)
-				expect(popularityBudget(creativity, "room", 9)).toEqual({
+				expect(popularityBudget(creativity, "room", 9, null)).toEqual({
 					maxMainstream: null,
 					minMainstream: 5,
 				});
+		});
+
+		test("a classics request lifts the ceiling at every creativity and keeps Room's floor", () => {
+			const classics = { classics: { quote: "greatest hits" } };
+			for (const creativity of CREATIVITY_LEVELS) {
+				for (const purpose of ["discover", "comfort"] as const)
+					expect(
+						popularityBudget(creativity, purpose, 10, classics),
+					).toBeNull();
+				expect(popularityBudget(creativity, "room", 9, classics)).toEqual({
+					maxMainstream: null,
+					minMainstream: 5,
+				});
+			}
+			expect(
+				popularityBudget("adventurous", "discover", 10, { classics: null }),
+			).toEqual({ maxMainstream: 3, minMainstream: null });
+		});
+
+		describe("classics request", () => {
+			const BRIEF = "The best 80s disco hits for a kitchen party";
+			const classicsRead = () =>
+				geminiStream(
+					JSON.stringify({
+						genres: ["disco"],
+						era: { start: 1980, end: 1989 },
+						classics: { quote: "best 80s disco hits" },
+					}),
+				);
+			const famous = Object.fromEntries(SIX.map((artist) => [artist, HIT]));
+			const fakes = () =>
+				installFakeFetch({
+					gemini: () => geminiStream(curate("Golf")),
+					intent: classicsRead,
+					spotify,
+					lastfm: listeners({ ...famous, Golf: 100 }),
+					library: () =>
+						savedTracks(
+							["Alpha", "Bravo", "Charlie"].map((artist) => ({
+								id: `id-${artist}`,
+								artist,
+							})),
+						),
+				});
+			const generate = (body: Record<string, unknown> = {}) =>
+				create({
+					prompt: BRIEF,
+					purpose: "discover",
+					creativity: "adventurous",
+					...body,
+				});
+			const curatorPrompt = (fake: { requests: RecordedRequest[] }) =>
+				providerCalls(fake, PROVIDER_HOST.gemini)
+					.map(geminiPrompt)
+					.find((p) => p?.startsWith("Build a")) ?? "";
+
+			test("under Discover and Adventurous it keeps more than three mainstream recordings and reports an uncapped novelty budget", async () => {
+				const fake = fakes();
+				const lines = await generate();
+				expect(lines[1]).toMatchObject({
+					kind: "intent",
+					intent: { classics: { quote: "best 80s disco hits" } },
+				});
+				expect(slots(lines).map((s) => [s.artist, s.origin])).toEqual(
+					SIX.map((artist) => [artist, "pick"]),
+				);
+				expect(popularityLine(lines)).toMatchObject({
+					status: "uncapped",
+					mainstream: 6,
+				});
+				expect(lines.find((line) => line.kind === "budget")).toEqual({
+					kind: "budget",
+					status: "uncapped",
+					known: 3,
+					byKnownArtist: 3,
+				});
+				expect(rerankInput(fake).popularityBudget).toBeNull();
+				expect(curatorPrompt(fake)).toContain(CLASSICS_INSTRUCTION);
+			});
+
+			test("forced off by the settings, the generation reads no classics request and keeps today's budgets", async () => {
+				const fake = fakes();
+				const lines = await generate({ classics: "off" });
+				expect(lines[1]).toMatchObject({
+					kind: "intent",
+					intent: { genres: ["disco"], classics: null },
+				});
+				expect(popularityLine(lines)).toMatchObject({
+					status: "breached",
+					budget: { maxMainstream: 3, minMainstream: null },
+				});
+				expect(lines.find((line) => line.kind === "budget")).toMatchObject({
+					status: "held",
+					budget: { knownTracks: 2, knownArtists: 2 },
+					known: 2,
+				});
+				expect(curatorPrompt(fake)).not.toContain(CLASSICS_INSTRUCTION);
+			});
 		});
 
 		test("Adventurous keeps the first three mainstream picks and swaps later ones for pool songs counted below the threshold, never uncounted ones", async () => {
@@ -4832,6 +5287,68 @@ describe("POST /api/edge/recommendations", () => {
 		const prompt = geminiPrompt(call);
 		expect(prompt).toContain("Slowdive");
 		expect(prompt).toContain("Oasis");
+	});
+});
+
+describe("Spotify export", () => {
+	test("login asks only for the private playlist scope, which covers creating the playlist and adding its items", async () => {
+		expect(SPOTIFY_SCOPES).toContain("playlist-modify-private");
+		expect(SPOTIFY_SCOPES).not.toContain("playlist-modify-public");
+
+		const calls: { method: string; path: string; body: unknown }[] = [];
+		globalThis.fetch = (async (
+			input: RequestInfo | URL,
+			init?: RequestInit,
+		) => {
+			const { pathname } = new URL(String(input));
+			calls.push({
+				method: init?.method ?? "GET",
+				path: pathname,
+				body: init?.body ? JSON.parse(String(init.body)) : null,
+			});
+			return pathname === "/v1/me/playlists"
+				? Response.json({
+						id: "pl-1",
+						external_urls: {
+							spotify: "https://open.spotify.com/playlist/pl-1",
+						},
+						uri: "spotify:playlist:pl-1",
+					})
+				: Response.json({ snapshot_id: "snap-1" });
+		}) as typeof fetch;
+		const { playlistRouter } = await import("~/server/api/routers/playlist");
+		const { createCallerFactory } = await import("~/server/api/trpc");
+		const caller = createCallerFactory(playlistRouter)({
+			session: TEST_SESSION as never,
+			drizzle: {} as never,
+			schema: {} as never,
+			op: {} as never,
+		});
+
+		const playlist = await caller.exportPlaylist({
+			name: "Late Night Drive",
+			description: "Synths for empty highways.",
+			songIds: ["a", "b"],
+		});
+
+		expect(playlist.id).toBe("pl-1");
+		// A private playlist and its items need only playlist-modify-private.
+		expect(calls).toEqual([
+			{
+				method: "POST",
+				path: "/v1/me/playlists",
+				body: {
+					name: "Late Night Drive",
+					description: "Synths for empty highways.",
+					public: false,
+				},
+			},
+			{
+				method: "POST",
+				path: "/v1/playlists/pl-1/items",
+				body: { uris: ["spotify:track:a", "spotify:track:b"] },
+			},
+		]);
 	});
 });
 

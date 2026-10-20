@@ -1,5 +1,6 @@
 import type { Creativity } from "./creativity";
 import type { Evidence, ListenerSource } from "./evidence";
+import type { Intent } from "./intent";
 import type { PopularityBudget } from "./playlist-stream";
 import type { Purpose } from "./purpose";
 
@@ -46,16 +47,18 @@ export const mainstreamStatus = (
  * ceiling: none for Safe, room for a third of the picks below the
  * threshold for Balanced, three for Adventurous. A room of other people
  * needs to recognise the set, so purpose Room sets a floor of half the
- * picks instead.
+ * picks instead. A classics request asks for well-known recordings, so it
+ * lifts the ceiling at every creativity; Room's floor still holds.
  */
 export function popularityBudget(
 	creativity: Creativity,
 	purpose: Purpose,
 	trackCount: number,
+	intent: Pick<Intent, "classics"> | null,
 ): PopularityBudget | null {
 	if (purpose === "room")
 		return { maxMainstream: null, minMainstream: Math.ceil(trackCount / 2) };
-	if (creativity === "safe") return null;
+	if (creativity === "safe" || intent?.classics) return null;
 	return {
 		maxMainstream:
 			creativity === "balanced" ? trackCount - Math.ceil(trackCount / 3) : 3,

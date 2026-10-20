@@ -2,6 +2,7 @@ import {
 	type KnownRecording,
 	recentTracks,
 	savedTracks,
+	TOKEN_MARKET,
 	topTracks,
 } from "~/server/api/spotify";
 
@@ -13,6 +14,8 @@ import {
  * failure means.
  */
 export interface Listener {
+	/** The market every search is restricted to, so picks play for them. */
+	market: string;
 	savedTracks(): Promise<KnownRecording[]>;
 	topTracks(): Promise<KnownRecording[]>;
 	recentTracks(): Promise<KnownRecording[]>;
@@ -20,6 +23,7 @@ export interface Listener {
 
 /** The signed-in listener, read through their Spotify token. */
 export const spotifyListener = (token: string): Listener => ({
+	market: TOKEN_MARKET,
 	savedTracks: () => savedTracks(token),
 	topTracks: () => topTracks(token),
 	recentTracks: () => recentTracks(token),

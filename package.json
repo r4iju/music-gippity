@@ -17,6 +17,8 @@
 		"eval": "LIVE_EVAL=1 bun --env-file=.env.development test ./evals/harness.eval.ts",
 		"eval:recording-evidence": "LIVE_EVAL=1 bun --env-file=.env.development test ./evals/recording-evidence.eval.ts",
 		"eval:compare-vocals": "LIVE_EVAL=1 bun --env-file=.env.development test ./evals/compare-vocal-repairs.eval.ts",
+		"eval:judge-robustness": "LIVE_EVAL=1 bun --env-file=.env.development test ./evals/judge-robustness.eval.ts",
+		"eval:candidate-swap": "LIVE_EVAL=1 bun --env-file=.env.development test ./evals/candidate-swap.eval.ts",
 		"eval:snapshot-listener": "bun --env-file=.env.production evals/snapshot-listener.ts",
 		"next:dev": "next dev -p 3025 --turbo #--experimental-https",
 		"dev": "concurrently --kill-others -n \"db,app\" -c \"bgBlue.bold,bgMagenta.bold\" \"bun run db:dev\" \"bun run next:dev\"",

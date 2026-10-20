@@ -14,6 +14,7 @@ const MIGRATIONS = [
 	"0004_checkpointed_playlists",
 	"0005_generation_checkpoints",
 	"0006_wise_blazing_skull",
+	"0007_drop_song_preview_url",
 ];
 
 const USER_TABLES = [

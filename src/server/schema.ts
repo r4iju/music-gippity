@@ -248,7 +248,6 @@ export const songs = sqliteTable(
 		title: text("title").notNull(),
 		artist: text("artist").notNull(),
 		songId: text("song_id"),
-		previewUrl: text("preview_url"),
 		albumTitle: text("album_title"),
 		albumImage: text("album_image"),
 		albumYear: integer("album_year"),
