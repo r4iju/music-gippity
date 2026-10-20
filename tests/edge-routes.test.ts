@@ -451,8 +451,8 @@ describe("playlist generation core", () => {
 				["Bora Vocal", "vocal"],
 			]);
 			expect(songs.map((s) => s.resolution)).toEqual([
-				{ tier: "exact", drift: false, isrc: "ISRC-plain" },
-				{ tier: "exact", drift: false, isrc: "ISRC-vocal" },
+				{ tier: "exact", drift: false, isrc: "ISRC-plain", attempt: "first" },
+				{ tier: "exact", drift: false, isrc: "ISRC-vocal", attempt: "first" },
 			]);
 		});
 
@@ -475,6 +475,7 @@ describe("playlist generation core", () => {
 				tier: "normalized",
 				drift: true,
 				isrc: "ISRC-live",
+				attempt: "first",
 			});
 		});
 
@@ -504,6 +505,7 @@ describe("playlist generation core", () => {
 				tier: "exact",
 				drift: false,
 				isrc: "ISRC-studio",
+				attempt: "retry",
 			});
 			expect(spotifyQueries(fake)).toEqual([
 				"artist:Kavinsky track:Nightcall",
@@ -529,6 +531,7 @@ describe("playlist generation core", () => {
 				tier: "exact",
 				drift: false,
 				isrc: "ISRC-sp-artist-kavinsky-track-nightcall",
+				attempt: "first",
 			});
 			expect(last("Ghost")).toEqual({
 				tier: "unresolved",
@@ -615,6 +618,60 @@ describe("playlist generation core", () => {
 			expect(TABLE_HEADER).toContain("exact / normalized / fuzzy / unresolved");
 			expect(TABLE_HEADER).toContain("drift");
 			expect(row).toContain("1 / 1 / 0 / 0");
+		});
+
+		test("eval results and the report count picks resolved on the first search, the retry and by replacement", async () => {
+			installFakeFetch({
+				gemini: (p) =>
+					geminiStream(
+						p.startsWith("Build")
+							? picks(
+									["Kavinsky", "Nightcall"],
+									["The Midnight", "Sunset"],
+									["Nobody", "Ghost"],
+								)
+							: '{"artist":"Com Truise","title":"Brokendate"}',
+					),
+				spotify: (query) =>
+					query.includes("Ghost")
+						? spotifyNoMatch()
+						: query.includes("Sunset")
+							? spotifyMatchPlainOnly(query)
+							: spotifyMatch(query),
+			});
+			const result = await runCase(
+				{
+					id: "attempts",
+					brief: "Nocturnal synthwave for a long drive",
+					creativity: "balanced",
+					purpose: "discover",
+					trackCount: 3,
+					trackCriteria: [],
+					playlistCriteria: [],
+				},
+				"gemini",
+			);
+			expect(
+				result.songs.map((s) => [s.artist, s.resolution?.attempt]),
+			).toEqual([
+				["Kavinsky", "first"],
+				["The Midnight", "retry"],
+				["Com Truise", "first"],
+			]);
+			expect(result.attempts).toEqual({ first: 1, retry: 1, replacement: 1 });
+			const header = (TABLE_HEADER.split("\n")[0] ?? "").split(" | ");
+			const row = summaryRow({
+				caseId: "attempts",
+				engine: "gemini",
+				result,
+				failures: [],
+				overlap: "n/a",
+			}).split(" | ");
+			expect(row).toHaveLength(header.length);
+			expect(row[header.indexOf("first try")]).toBe("1/3 (33%)");
+			expect(row[header.indexOf("first / retry / replacement")]).toBe(
+				"1 / 1 / 1",
+			);
 		});
 	});
 
@@ -4742,6 +4799,7 @@ describe("POST /api/edge/replace-song", () => {
 			tier: "exact",
 			drift: false,
 			isrc: "ISRC-plain",
+			attempt: "first",
 		});
 	});
 
