@@ -571,6 +571,142 @@ describe("playlist generation core", () => {
 			expect(songs.map((s) => s.songId)).toEqual(["original"]);
 		});
 
+		const searchMarkets = (fake: { requests: RecordedRequest[] }) =>
+			providerCalls(fake, "api.spotify.com/v1/search").map((r) =>
+				new URL(r.url).searchParams.get("market"),
+			);
+
+		test("every search a listener's generation makes is restricted to their market", async () => {
+			const fake = installFakeFetch({
+				gemini: () =>
+					geminiStream(picks(["Kavinsky", "Nightcall"], ["Nobody", "Ghost"])),
+				spotify: (query) =>
+					query.includes("Nightcall") ? spotifyMatch(query) : spotifyNoMatch(),
+			});
+			await readNdjson(
+				await createPlaylist(
+					post("/api/edge/create-playlist", playlistBody("gemini")),
+				),
+			);
+			const replaced = installFakeFetch({
+				openai: () =>
+					openaiStream('{"artist":"Com Truise","title":"Brokendate"}'),
+			});
+			await replaceSong(
+				post("/api/edge/replace-song", {
+					playlistName: "Late Night Drive",
+					playlistDescription: "Synths for empty highways.",
+					currentSongs: [{ artist: "Kavinsky", title: "Nightcall" }],
+					avoidedSongs: [],
+					targetSongId: "song-2",
+					engine: "chatgpt",
+				}),
+			);
+
+			// The unresolved pick is retried, so there are several searches.
+			const markets = [...searchMarkets(fake), ...searchMarkets(replaced)];
+			expect(markets.length).toBeGreaterThan(3);
+			expect(new Set(markets)).toEqual(new Set(["from_token"]));
+		});
+
+		test("an eval run searches the configured market, since its token has none", async () => {
+			const fake = installFakeFetch({
+				openai: () =>
+					openaiStream(
+						picks(["Kavinsky", "Nightcall"], ["The Midnight", "Sunset"]),
+					),
+			});
+			await runCase(
+				{
+					id: "market",
+					brief: "Nocturnal synthwave for a long drive",
+					creativity: "balanced",
+					purpose: "discover",
+					trackCount: 2,
+					trackCriteria: [],
+					playlistCriteria: [],
+				},
+				"chatgpt",
+				fixtureListener(
+					{
+						takenAt: "2026-09-19T00:00:00Z",
+						savedTracks: [],
+						topTracks: [],
+						recentTracks: [],
+					},
+					"SE",
+				),
+			);
+
+			const markets = searchMarkets(fake);
+			expect(markets.length).toBeGreaterThan(0);
+			expect(new Set(markets)).toEqual(new Set(["SE"]));
+		});
+
+		test("a recording Spotify marks as not playable in the market is never the resolution", async () => {
+			installFakeFetch({
+				gemini: () =>
+					geminiStream(
+						picks(
+							["Kavinsky", "Nightcall"],
+							["The Midnight", "Sunset"],
+							["Gunship", "Tech Noir"],
+						),
+					),
+				spotify: (query) => {
+					const artist = artistOf(query);
+					if (artist === "Kavinsky")
+						return spotifyTracks([
+							{ id: "greyed", name: "Nightcall", artist, playable: false },
+						]);
+					if (artist === "The Midnight")
+						return spotifyTracks([
+							{ id: "greyed-sunset", name: "Sunset", artist, playable: false },
+							{
+								id: "playable-live",
+								name: "Sunset - Live",
+								artist,
+								playable: true,
+							},
+						]);
+					// Without the field the recording is accepted as before.
+					return spotifyTracks([{ id: "unmarked", name: "Tech Noir", artist }]);
+				},
+			});
+			const res = await createPlaylist(
+				post("/api/edge/create-playlist", {
+					...playlistBody("gemini"),
+					trackCount: 3,
+				}),
+			);
+			const songs = (await readNdjson(res)).filter((l) => l.kind === "song");
+			const last = (title: string) =>
+				songs.filter((s) => s.title === title).at(-1);
+
+			expect(songs.map((s) => s.songId)).not.toContain("greyed");
+			expect(songs.map((s) => s.songId)).not.toContain("greyed-sunset");
+			expect(last("Nightcall")?.resolution).toEqual({
+				tier: "unresolved",
+				drift: false,
+				isrc: null,
+			});
+			expect(last("Sunset")?.songId).toBe("playable-live");
+			expect(last("Tech Noir")?.songId).toBe("unmarked");
+		});
+
+		test("a resolved song carries no preview URL", async () => {
+			installFakeFetch({
+				gemini: () => geminiStream(picks(["Kavinsky", "Nightcall"])),
+			});
+			const res = await createPlaylist(
+				post("/api/edge/create-playlist", playlistBody("gemini")),
+			);
+			const songs = (await readNdjson(res)).filter((l) => l.kind === "song");
+
+			expect(songs.some((s) => s.songId)).toBe(true);
+			for (const song of songs) expect(song).not.toHaveProperty("previewUrl");
+		});
+
 		test("eval results and the report carry a resolution funnel and drift count", async () => {
 			installFakeFetch({
 				openai: () =>
@@ -3062,14 +3198,19 @@ describe("playlist generation core", () => {
 						...playlistBody("gemini"),
 						trackCount: 4,
 					}),
-					fixtureListener({
-						takenAt: "2026-09-19T00:00:00Z",
-						savedTracks: [
-							{ id: "id-Kavinsky", isrc: null, artists: ["Kavinsky"] },
-						],
-						topTracks: [],
-						recentTracks: [{ id: null, isrc: null, artists: ["The Midnight"] }],
-					}),
+					fixtureListener(
+						{
+							takenAt: "2026-09-19T00:00:00Z",
+							savedTracks: [
+								{ id: "id-Kavinsky", isrc: null, artists: ["Kavinsky"] },
+							],
+							topTracks: [],
+							recentTracks: [
+								{ id: null, isrc: null, artists: ["The Midnight"] },
+							],
+						},
+						"US",
+					),
 				),
 			);
 
@@ -4639,6 +4780,68 @@ describe("POST /api/edge/recommendations", () => {
 		const prompt = geminiPrompt(call);
 		expect(prompt).toContain("Slowdive");
 		expect(prompt).toContain("Oasis");
+	});
+});
+
+describe("Spotify export", () => {
+	test("login asks only for the private playlist scope, which covers creating the playlist and adding its items", async () => {
+		expect(SPOTIFY_SCOPES).toContain("playlist-modify-private");
+		expect(SPOTIFY_SCOPES).not.toContain("playlist-modify-public");
+
+		const calls: { method: string; path: string; body: unknown }[] = [];
+		globalThis.fetch = (async (
+			input: RequestInfo | URL,
+			init?: RequestInit,
+		) => {
+			const { pathname } = new URL(String(input));
+			calls.push({
+				method: init?.method ?? "GET",
+				path: pathname,
+				body: init?.body ? JSON.parse(String(init.body)) : null,
+			});
+			return pathname === "/v1/me/playlists"
+				? Response.json({
+						id: "pl-1",
+						external_urls: {
+							spotify: "https://open.spotify.com/playlist/pl-1",
+						},
+						uri: "spotify:playlist:pl-1",
+					})
+				: Response.json({ snapshot_id: "snap-1" });
+		}) as typeof fetch;
+		const { playlistRouter } = await import("~/server/api/routers/playlist");
+		const { createCallerFactory } = await import("~/server/api/trpc");
+		const caller = createCallerFactory(playlistRouter)({
+			session: TEST_SESSION as never,
+			drizzle: {} as never,
+			schema: {} as never,
+			op: {} as never,
+		});
+
+		const playlist = await caller.exportPlaylist({
+			name: "Late Night Drive",
+			description: "Synths for empty highways.",
+			songIds: ["a", "b"],
+		});
+
+		expect(playlist.id).toBe("pl-1");
+		// A private playlist and its items need only playlist-modify-private.
+		expect(calls).toEqual([
+			{
+				method: "POST",
+				path: "/v1/me/playlists",
+				body: {
+					name: "Late Night Drive",
+					description: "Synths for empty highways.",
+					public: false,
+				},
+			},
+			{
+				method: "POST",
+				path: "/v1/playlists/pl-1/items",
+				body: { uris: ["spotify:track:a", "spotify:track:b"] },
+			},
+		]);
 	});
 });
 

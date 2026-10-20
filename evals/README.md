@@ -68,6 +68,9 @@ one when several are stored) and keep the result out of commits: it is
 listening history. Known and budget columns only compare between runs on the
 same snapshot.
 
+Nor does that token carry a market, so the eval's searches are restricted to
+`EVAL_SPOTIFY_MARKET` (default `US`) where the app uses the listener's own.
+
 ## No-vocals repair
 
 When a brief uses supported vocal or instrumental wording, generation reviews

@@ -12,6 +12,12 @@ export const env = createEnv({
 		}, z.url()),
 		SPOTIFY_CLIENT_ID: z.string().min(1),
 		SPOTIFY_CLIENT_SECRET: z.string().min(1),
+		// The country the eval searches in: its client-credentials token has
+		// no listener market. The app's searches use the listener's own.
+		EVAL_SPOTIFY_MARKET: z
+			.string()
+			.regex(/^[A-Z]{2}$/)
+			.default("US"),
 		OPENAI_ORGANIZATION_ID: z.string().min(1),
 		OPENAI_KEY: z.string().min(1),
 		GEMINI_API_KEY: z.string().min(1),
@@ -38,6 +44,7 @@ export const env = createEnv({
 		NEXTAUTH_URL: process.env.NEXTAUTH_URL,
 		SPOTIFY_CLIENT_ID: process.env.SPOTIFY_CLIENT_ID,
 		SPOTIFY_CLIENT_SECRET: process.env.SPOTIFY_CLIENT_SECRET,
+		EVAL_SPOTIFY_MARKET: process.env.EVAL_SPOTIFY_MARKET,
 		OPENAI_KEY: process.env.OPENAI_KEY,
 		OPENAI_ORGANIZATION_ID: process.env.OPENAI_ORGANIZATION_ID,
 		GEMINI_API_KEY: process.env.GEMINI_API_KEY,

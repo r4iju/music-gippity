@@ -113,7 +113,6 @@ type Artist = {
 type Album = {
 	album_type: string;
 	artists: Artist[];
-	available_markets: string[];
 	external_urls: ExternalUrls;
 	href: string;
 	id: string;
@@ -133,7 +132,6 @@ type Album = {
 type Track = {
 	album: Album;
 	artists: Artist[];
-	available_markets: string[];
 	disc_number: number;
 	duration_ms: number;
 	explicit: boolean;
@@ -144,17 +142,28 @@ type Track = {
 	href: string;
 	id: string;
 	is_local: boolean;
+	// Sent only when the search names a market: whether the recording plays
+	// there.
+	is_playable?: boolean;
 	name: string;
-	preview_url: string | null;
 	track_number: number;
 	type: string;
 	uri: string;
 };
 
+/**
+ * The market a listener's token searches in: Spotify reads it from the
+ * account. A client-credentials token has no account, so its caller names a
+ * country instead.
+ */
+export const TOKEN_MARKET = "from_token";
+
 type FindTrackProps = {
 	song: NotFoundSong;
 	token: string;
 	intent?: Intent | null;
+	/** Where the recording must play; the token's own market by default. */
+	market?: string;
 };
 
 interface TracksResponseBody {
@@ -172,10 +181,11 @@ interface TracksResponseBody {
 async function searchTracks(
 	query: string,
 	token: string,
+	market: string,
 	budgetMs?: number,
 ): Promise<Track[]> {
 	const response = await spotifyApi<TracksResponseBody>(
-		`/search?q=${encodeURIComponent(query)}&type=track&limit=10`,
+		`/search?q=${encodeURIComponent(query)}&type=track&limit=10&market=${encodeURIComponent(market)}`,
 		token,
 		"GET",
 		undefined,
@@ -267,6 +277,7 @@ export const findSpotifyTrack = async ({
 	song,
 	token,
 	intent = null,
+	market = TOKEN_MARKET,
 }: FindTrackProps): Promise<Song> => {
 	logger.info(`Searching for Spotify track: ${song.artist} - ${song.title}`);
 	// The fielded query is precise but strict about spelling; fall back to a
@@ -284,7 +295,11 @@ export const findSpotifyTrack = async ({
 	let resolution: Resolution = UNRESOLVED;
 	let bestScore = Number.NEGATIVE_INFINITY;
 	for (const query of attempts) {
-		const tracks = await searchTracks(query, token);
+		// A recording greyed out in the market is not one the listener can
+		// play; one Spotify does not mark is taken as playable.
+		const tracks = (await searchTracks(query, token, market)).filter(
+			(t) => t.is_playable !== false,
+		);
 		const best = chooseSearchHit(song, tracks.map(toHit), intent);
 		if (!best || best.score <= bestScore) continue;
 		track = tracks.find((t) => t.id === best.hit.id);
@@ -299,13 +314,11 @@ export const findSpotifyTrack = async ({
 
 	const trackData: {
 		songId: string | null;
-		previewUrl: string | null;
 		albumTitle: string | null;
 		albumYear: number | null;
 		albumImage: string | null;
 	} = {
 		songId: null,
-		previewUrl: "",
 		albumTitle: null,
 		albumYear: null,
 		albumImage: null,
@@ -313,7 +326,6 @@ export const findSpotifyTrack = async ({
 
 	if (track) {
 		trackData.songId = track.id ?? null;
-		trackData.previewUrl = track.preview_url ?? null;
 		trackData.albumImage = track.album.images[0]?.url ?? null;
 		trackData.albumTitle = track.album.name;
 		trackData.albumYear = releaseYear(track.album.release_date);
