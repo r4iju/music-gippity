@@ -18,7 +18,10 @@ import {
 } from "~/lib/playlist-stream";
 import { popularityBudget } from "~/lib/popularity";
 import { type Resolution, UNRESOLVED } from "~/lib/resolution";
-import { searchForCandidates } from "~/server/api/candidates";
+import {
+	type CandidatePool,
+	searchForCandidates,
+} from "~/server/api/candidates";
 import { runEngine } from "~/server/api/engines";
 import {
 	curatorSystemPrompt,
@@ -106,11 +109,21 @@ export const intoSlot = <S extends Song>(song: S, slot: Slot): S => ({
 });
 
 /**
+ * Eval-only: replaces the candidates found for the brief before the
+ * curator sees them. Production never passes one.
+ */
+export type SwapCandidates = (found: CandidatePool) => CandidatePool;
+
+/**
  * Builds the playlist a request asks for and streams it. The listener's
  * account is read through `listener`, the signed-in Spotify account unless
  * an eval supplies a fixture.
  */
-export async function createPlaylist(req: Request, listener?: Listener) {
+export async function createPlaylist(
+	req: Request,
+	listener?: Listener,
+	swapCandidates?: SwapCandidates,
+) {
 	const session = await auth();
 	if (!session) return new Response("Unauthorized", { status: 401 });
 	return generatePlaylistStream(
@@ -121,6 +134,7 @@ export async function createPlaylist(req: Request, listener?: Listener) {
 			signal: req.signal,
 		},
 		listener,
+		swapCandidates,
 	);
 }
 
@@ -133,6 +147,7 @@ export async function generatePlaylistStream(
 		playlistId?: string;
 	},
 	listener?: Listener,
+	swapCandidates?: SwapCandidates,
 ) {
 	const cancellation = new AbortController();
 	const signal = AbortSignal.any([context.signal, cancellation.signal]);
@@ -154,7 +169,7 @@ export async function generatePlaylistStream(
 	const avoidRead = budget
 		? knownRead.then((known) => avoidedArtists(known.set))
 		: null;
-	const search = await (avoidRead ?? Promise.resolve(null)).then((avoid) =>
+	const found = await (avoidRead ?? Promise.resolve(null)).then((avoid) =>
 		searchForCandidates({
 			userId,
 			signal,
@@ -168,6 +183,7 @@ export async function generatePlaylistStream(
 			popularity: popularityBudget(creativity, purpose, trackCount),
 		}),
 	);
+	const search = swapCandidates ? swapCandidates(found) : found;
 	signal.throwIfAborted();
 	// An artist candidate is matched by any of its songs, and so is a chart
 	// track: the curator may pick another take than the chart's.

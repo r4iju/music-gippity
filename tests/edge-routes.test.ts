@@ -8,6 +8,7 @@ import {
 import { MAINSTREAM_LISTENERS, popularityBudget } from "~/lib/popularity";
 import { PURPOSE, PURPOSES, type Purpose } from "~/lib/purpose";
 import { SPOTIFY_SCOPES } from "~/lib/spotify-scopes";
+import type { CandidatePool } from "~/server/api/candidates";
 import { surplusFor } from "~/server/api/engines/common";
 import { gatherEvidence } from "~/server/api/evidence";
 import { otherEngine } from "~/server/api/rerank";
@@ -2581,6 +2582,60 @@ describe("playlist generation core", () => {
 			).toEqual([
 				["recall", "tag"],
 				["recall", null],
+			]);
+		});
+
+		test("an eval can swap the candidates the curator is offered for another pool", async () => {
+			const fake = installFakeFetch({
+				intent: difficult,
+				gemini: curator,
+				...lookups,
+			});
+			let real: CandidatePool | undefined;
+			const result = await runCase(
+				{
+					id: "candidates",
+					brief: BRIEF,
+					creativity: "balanced",
+					purpose: "discover",
+					trackCount: 2,
+					trackCriteria: [],
+					playlistCriteria: [],
+				},
+				"gemini",
+				undefined,
+				(found) => {
+					real = found;
+					const artists = [
+						{
+							name: "The Midnight",
+							mbid: "mb-midnight",
+							source: "tag" as const,
+							area: null,
+							tags: ["synthwave"],
+							label: null,
+						},
+					];
+					return {
+						artists,
+						tracks: [],
+						event: { ...found.event, artists, tracks: [] },
+					};
+				},
+			);
+			expect(real?.artists.map((artist) => artist.name)).toEqual(["Kavinsky"]);
+			expect(real?.tracks.map((track) => track.artist)).toEqual(["Ulrich"]);
+			const prompt = generationPrompt(fake) ?? "";
+			expect(prompt).toContain("- The Midnight");
+			expect(prompt).not.toContain("- Kavinsky");
+			expect(prompt).not.toContain("Ulrich");
+			expect(result.generation.userPrompt).toBe(prompt);
+			expect(result.candidates?.artists.map((artist) => artist.name)).toEqual([
+				"The Midnight",
+			]);
+			expect(result.songs.map((s) => [s.artist, s.candidate ?? null])).toEqual([
+				["Kavinsky", null],
+				["The Midnight", "tag"],
 			]);
 		});
 
