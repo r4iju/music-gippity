@@ -9,12 +9,21 @@ export const RESOLUTION_TIERS = [
 ] as const;
 export type ResolutionTier = (typeof RESOLUTION_TIERS)[number];
 
+/**
+ * Which search found the recording: the fielded query, or a later
+ * plain-text or base-title retry. Absent when unresolved and in songs
+ * recorded before it existed.
+ */
+export const RESOLUTION_ATTEMPTS = ["first", "retry"] as const;
+export type ResolutionAttempt = (typeof RESOLUTION_ATTEMPTS)[number];
+
 /** How a pick was matched to a Spotify recording, kept on every song. */
 export const ResolutionSchema = z.object({
 	tier: z.enum(RESOLUTION_TIERS),
 	// The recording is a version (live, remix, ...) the pick did not ask for.
 	drift: z.boolean(),
 	isrc: z.string().nullable(),
+	attempt: z.enum(RESOLUTION_ATTEMPTS).optional(),
 });
 export type Resolution = z.infer<typeof ResolutionSchema>;
 

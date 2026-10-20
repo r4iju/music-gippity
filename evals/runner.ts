@@ -18,7 +18,7 @@ import {
 } from "~/lib/playlist-stream";
 import { type PopularitySummary, summarizePopularity } from "~/lib/popularity";
 import type { Purpose } from "~/lib/purpose";
-import type { ResolutionTier } from "~/lib/resolution";
+import type { ResolutionAttempt, ResolutionTier } from "~/lib/resolution";
 import {
 	curatorSystemPrompt,
 	playlistPrompt,
@@ -70,6 +70,12 @@ export interface RunResult {
 	onSpotify: number;
 	/** How many final songs resolved at each tier. */
 	resolution: Record<ResolutionTier, number>;
+	/**
+	 * Resolved final songs by the search that found them; an engine's
+	 * substitute counts as a replacement whichever search found it. Absent in
+	 * older results.
+	 */
+	attempts?: Record<ResolutionAttempt | "replacement", number>;
 	/** Final songs whose recording is a version the pick did not ask for. */
 	drift: number;
 	replaced: number;
@@ -247,6 +253,16 @@ export async function runCase(
 				return funnel;
 			},
 			{ exact: 0, normalized: 0, fuzzy: 0, unresolved: 0 },
+		),
+		attempts: songs.reduce(
+			(counts, song) => {
+				if (!song.songId) return counts;
+				if (song.origin === "replacement" || song.origin === "repair")
+					counts.replacement += 1;
+				else if (song.resolution?.attempt) counts[song.resolution.attempt] += 1;
+				return counts;
+			},
+			{ first: 0, retry: 0, replacement: 0 },
 		),
 		drift: songs.filter((s) => s.resolution?.drift).length,
 		replaced: replaced.size,

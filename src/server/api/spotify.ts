@@ -283,12 +283,12 @@ export const findSpotifyTrack = async ({
 	let track: Track | undefined;
 	let resolution: Resolution = UNRESOLVED;
 	let bestScore = Number.NEGATIVE_INFINITY;
-	for (const query of attempts) {
+	for (const [index, query] of attempts.entries()) {
 		const tracks = await searchTracks(query, token);
 		const best = chooseSearchHit(song, tracks.map(toHit), intent);
 		if (!best || best.score <= bestScore) continue;
 		track = tracks.find((t) => t.id === best.hit.id);
-		resolution = best.resolution;
+		resolution = { ...best.resolution, attempt: index ? "retry" : "first" };
 		bestScore = best.score;
 		if (
 			resolution.tier === "exact" ||
