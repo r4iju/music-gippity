@@ -94,15 +94,23 @@ shuffled (`EVAL_SEED`, default 1, repeats a shuffle), its description
 paraphrased, and its description padded. The paraphrase is one
 temperature-0 rewording by the judge's own engine, so the mode still calls
 only the judge. The app keeps it only if it loses no playlist artist or title
-the original names, no number and no quoted span; otherwise the paraphrased
-variant is skipped and the report shows the rejected text and what it lost.
+the original names, no name the original gives itself (capitalised words such
+as "New Order", or a number and a name such as "808 State"), no number, no
+quoted span (double, single, curly or guillemet quotes) and no negation word
+("no", "not", "without", "never", "sin", "sans", "ohne", "kein"). Names,
+quotes and negations are compared ignoring case and accents. Otherwise the
+paraphrased variant is skipped and the report shows the rejected text and
+what it lost.
 The paraphrase text is saved with each record. Padding appends fixed filler
 that names no sound, era, artist or rule. Each variant changes one thing.
 
 The report lists, per variant, the track and playlist-criterion verdicts that
 differ from the as-saved judgment, matching tracks by recording rather than
 position. A sequence verdict may legitimately change with the order; any other
-change was swayed by order or wording alone. Calls pause `EVAL_PAUSE_MS`
+shuffled or padded change was swayed by order or filler alone. The paraphrase
+check is lexical and cannot prove the rewording kept the meaning, so a
+paraphrased variant's changes are labelled "unverified: review the saved
+paraphrase" rather than blamed on wording. Calls pause `EVAL_PAUSE_MS`
 (default 15 s) apart; output goes to `results/judge-robustness-*.{json,md}`.
 
 ### Candidate swap

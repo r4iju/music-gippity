@@ -111,6 +111,55 @@ test("a paraphrase that drops an artist name, a number or a quoted title is reje
 	}
 });
 
+test("a paraphrase that drops a single-quoted span, changes a name the description gives, or loses a negation is rejected", async () => {
+	for (const [description, reply, missing] of [
+		["The set promises 'no vocals'.", "This set has vocals.", "no vocals"],
+		[
+			"It closes on ‘Pacific State’.",
+			"It closes on a Pacific track.",
+			"Pacific State",
+		],
+		["808 State open the set.", "808 States open the set.", "808 State"],
+		[
+			"Warehouse acid from New Order fans.",
+			"Warehouse acid from new fans.",
+			"New Order",
+		],
+		["No ballads, all floor.", "Ballads throughout, all floor.", "no"],
+		["Dark techno sin voces.", "Dark techno con voces.", "sin"],
+		["Pas de ballades, sans pause.", "Des ballades, avec pause.", "sans"],
+		["Ohne Gesang, kein Kitsch.", "Mit Gesang und Kitsch.", "kein"],
+	] as const) {
+		const { outcome } = await paraphrasedBy(reply, description);
+		expect(outcome.status).toBe("rejected");
+		if (outcome.status !== "rejected") throw new Error("Expected rejection");
+		expect(outcome.missing).toContain(missing);
+	}
+});
+
+test("a faithful rewording keeps names regardless of case and accents, and keeps its quotes and negations", async () => {
+	for (const [description, reply, artists] of [
+		[
+			"808 State and Sigur Rós, never a ballad, opening with 'Pacific State'.",
+			"Opening with 'Pacific State', it pairs 808 state with Sigur Ros and never a ballad.",
+			["Sigur Rós"],
+		],
+		[
+			"It's New Order's night: ‘Blue Monday’ first, no remixes.",
+			"No remixes, and ‘blue monday’ first: it's a new order night.",
+			[],
+		],
+		[
+			"Without vocals, not slow; sin voces, sans paroles, ohne Gesang, keine Balladen.",
+			"Not slow and without vocals; sans paroles, sin voces, keine Balladen, ohne Gesang.",
+			[],
+		],
+	] as const) {
+		const { outcome } = await paraphrasedBy(reply, description, [...artists]);
+		expect(outcome).toEqual({ status: "ok", text: reply, missing: [] });
+	}
+});
+
 test("a paraphrase the engine could not give is an error, and an empty description has none to ask for", async () => {
 	const { outcome } = await paraphrasedBy("", "Dark EBM for the floor.");
 	expect(outcome.status).toBe("error");

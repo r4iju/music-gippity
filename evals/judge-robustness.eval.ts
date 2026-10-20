@@ -17,6 +17,11 @@ import type { RunResult } from "./runner";
 const print = (text: string) => process.stdout.write(`${text}\n`);
 const cell = (value: string) =>
 	value.replaceAll("|", "\\|").replaceAll("\n", " ");
+/** A paraphrase passed a lexical check only, so its flips may be meaning, not wording. */
+const unverified = (variant: Variant, changed: readonly VerdictChange[]) =>
+	variant === "paraphrased" && changed.length
+		? " (unverified: review the saved paraphrase)"
+		: "";
 
 test(
 	"judge robustness",
@@ -64,7 +69,7 @@ test(
 			const lines = [
 				"# Judge robustness",
 				"",
-				`Judge: ${judgeEngine}. Seed: ${seed}. Each saved run is judged as saved, then with its tracks shuffled, its description paraphrased (one temperature-0 rewording by the judge's own engine, kept only if it loses no artist name, title, number or quoted span) and its description padded with filler that promises nothing. Tracks are compared by recording, criteria by id. A sequence verdict may legitimately change when the order does; any other change was swayed by order or wording alone.`,
+				`Judge: ${judgeEngine}. Seed: ${seed}. Each saved run is judged as saved, then with its tracks shuffled, its description paraphrased (one temperature-0 rewording by the judge's own engine, kept only if it loses no artist or title name, number, quoted span or negation word) and its description padded with filler that promises nothing. Tracks are compared by recording, criteria by id. A sequence verdict may legitimately change when the order does; any other shuffled or padded change was swayed by order or filler alone. The paraphrase check is lexical and cannot prove the meaning was kept, so a paraphrased change is marked unverified until the saved paraphrase is reviewed.`,
 				"",
 			];
 			for (const record of records) {
@@ -103,7 +108,7 @@ test(
 						continue;
 					}
 					lines.push(
-						`### ${variant.variant}: ${variant.changed.length} changed`,
+						`### ${variant.variant}: ${variant.changed.length} changed${unverified(variant.variant, variant.changed)}`,
 						"",
 					);
 					if (variant.variant !== "shuffled")
@@ -191,7 +196,7 @@ test(
 					if (judgment.status === "error")
 						errors.push(`${label}/${variant}: ${judgment.error}`);
 					print(
-						`${label}, ${variant}: ${changed ? `${changed.length} changed (${changed.filter((c) => c.kind === "track").length} track, ${changed.filter((c) => c.kind === "criterion").length} criterion)` : "error"}`,
+						`${label}, ${variant}: ${changed ? `${changed.length} changed (${changed.filter((c) => c.kind === "track").length} track, ${changed.filter((c) => c.kind === "criterion").length} criterion)${unverified(variant, changed)}` : "error"}`,
 					);
 					await save();
 				}

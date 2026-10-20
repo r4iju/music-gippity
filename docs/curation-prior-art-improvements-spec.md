@@ -227,7 +227,9 @@ robustness checks on the judge.
       verdicts that changed.
     - AC20.2: The mode reads saved results and calls only the judge. The
       paraphrase is one temperature-0 request to the judge's own engine,
-      kept only if it loses no artist name, title, number or quoted span.
+      kept only if it loses no artist name, title, number, quoted span or
+      negation word. The check is lexical, so the report marks paraphrased
+      changes "unverified: review the saved paraphrase".
 21. As a maintainer, I want to know whether candidates influence the
     curator, so that the candidate round earns its latency.
     - AC21.1: An opt-in mode replaces the candidate pool with candidates
