@@ -1,6 +1,7 @@
 import { artistKey } from "~/lib/caps";
+import type { Intent } from "~/lib/intent";
 import type { ArtistCandidate, TrackCandidate } from "~/lib/playlist-stream";
-import type { CandidatePool } from "~/server/api/candidates";
+import { type CandidatePool, excludedBy } from "~/server/api/candidates";
 
 /** What the curator is offered: artists, and chart tracks by artist. */
 export interface Offer {
@@ -15,13 +16,20 @@ const offeredArtists = (offer: Offer): Set<string> =>
 	]);
 
 /**
- * `found` with another case's offer in its place. The event carries the
- * swapped offer too, so the run records what the curator actually saw;
- * the lookups and their timings stay those of the real search.
+ * `found` with another case's offer in its place, less the candidates by
+ * an artist the target case's intent excludes, as its own search filters
+ * them. The event carries the swapped offer too, so the run records what
+ * the curator actually saw; the lookups and their timings stay those of
+ * the real search.
  */
-export function swapPool(found: CandidatePool, donor: Offer): CandidatePool {
-	const artists = [...donor.artists];
-	const tracks = [...donor.tracks];
+export function swapPool(
+	found: CandidatePool,
+	donor: Offer,
+	intent: { exclusions: Intent["exclusions"] } | null,
+): CandidatePool {
+	const excluded = excludedBy(intent);
+	const artists = donor.artists.filter((artist) => !excluded(artist));
+	const tracks = donor.tracks.filter((track) => !excluded(track));
 	return { artists, tracks, event: { ...found.event, artists, tracks } };
 }
 

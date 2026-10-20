@@ -91,11 +91,13 @@ EVAL_INPUTS=evals/results/run1.json EVAL_JUDGE_ENGINE=chatgpt EVAL_SEED=2 bun ru
 It reads the saved results and calls only the judge (Gemini unless
 `EVAL_JUDGE_ENGINE` says otherwise): each run as saved, then with its tracks
 shuffled (`EVAL_SEED`, default 1, repeats a shuffle), its description
-paraphrased, and its description padded. The paraphrase is a deterministic
-rewrite with no engine call: the sentences in reverse order, or a single
-sentence's clauses, so every promise survives; a description with nothing to
-reorder skips it. Padding appends fixed filler that names no sound, era,
-artist or rule. Each variant changes one thing.
+paraphrased, and its description padded. The paraphrase is one
+temperature-0 rewording by the judge's own engine, so the mode still calls
+only the judge. The app keeps it only if it loses no playlist artist or title
+the original names, no number and no quoted span; otherwise the paraphrased
+variant is skipped and the report shows the rejected text and what it lost.
+The paraphrase text is saved with each record. Padding appends fixed filler
+that names no sound, era, artist or rule. Each variant changes one thing.
 
 The report lists, per variant, the track and playlist-criterion verdicts that
 differ from the as-saved judgment, matching tracks by recording rather than

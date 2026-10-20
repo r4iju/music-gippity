@@ -6,6 +6,8 @@ import { type Judgment, judgePlaylist } from "./judge";
 import type { CaseRecord } from "./report";
 import {
 	changedVerdicts,
+	type Paraphrase,
+	paraphraseDescription,
 	robustnessVariants,
 	type Variant,
 	type VerdictChange,
@@ -40,6 +42,7 @@ test(
 			generator: RunResult["engine"];
 			result: RunResult;
 			original: Judgment;
+			paraphrase?: Paraphrase;
 			variants: {
 				variant: Variant;
 				description: string;
@@ -61,7 +64,7 @@ test(
 			const lines = [
 				"# Judge robustness",
 				"",
-				`Judge: ${judgeEngine}. Seed: ${seed}. Each saved run is judged as saved, then with its tracks shuffled, its description paraphrased (sentences or clauses reordered, no engine call) and its description padded with filler that promises nothing. Tracks are compared by recording, criteria by id. A sequence verdict may legitimately change when the order does; any other change was swayed by order or wording alone.`,
+				`Judge: ${judgeEngine}. Seed: ${seed}. Each saved run is judged as saved, then with its tracks shuffled, its description paraphrased (one temperature-0 rewording by the judge's own engine, kept only if it loses no artist name, title, number or quoted span) and its description padded with filler that promises nothing. Tracks are compared by recording, criteria by id. A sequence verdict may legitimately change when the order does; any other change was swayed by order or wording alone.`,
 				"",
 			];
 			for (const record of records) {
@@ -77,6 +80,18 @@ test(
 					lines.push(`ERROR (original): ${cell(record.original.error)}`, "");
 					continue;
 				}
+				const paraphrase = record.paraphrase;
+				if (paraphrase && paraphrase.status !== "ok")
+					lines.push(
+						"### paraphrased: skipped",
+						"",
+						paraphrase.status === "rejected"
+							? `Rejected paraphrase (lost ${cell(paraphrase.missing.join(", "))}): ${cell(paraphrase.text)}`
+							: paraphrase.status === "error"
+								? `ERROR: ${cell(paraphrase.error)}`
+								: "No description to paraphrase.",
+						"",
+					);
 				for (const variant of record.variants) {
 					if (variant.judgment.status === "error" || !variant.changed) {
 						lines.push(
@@ -142,9 +157,21 @@ test(
 					await save();
 					continue;
 				}
+				// The paraphrase is asked of the judge's own engine, so the mode
+				// still calls only the judge, and shares its pause.
+				await Bun.sleep(pauseMs);
+				const paraphrase = await paraphraseDescription(result, judgeEngine);
+				record.paraphrase = paraphrase;
+				if (paraphrase.status === "error")
+					errors.push(`${label}/paraphrase: ${paraphrase.error}`);
+				if (paraphrase.status === "rejected")
+					print(
+						`${label}, paraphrased: skipped, the paraphrase lost ${paraphrase.missing.join(", ")}`,
+					);
 				for (const { variant, result: varied } of robustnessVariants(
 					result,
 					seed,
+					paraphrase.status === "ok" ? paraphrase.text : null,
 				)) {
 					const judgment = await judge(varied);
 					const changed =

@@ -137,9 +137,9 @@ test(
 					target.result.case,
 					target.result.engine,
 					listener,
-					(found) => {
+					(found, intent) => {
 						seen.real = found;
-						return swapPool(found, offer);
+						return swapPool(found, offer, intent);
 					},
 				);
 				const real = seen.real;

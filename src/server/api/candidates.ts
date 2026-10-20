@@ -294,6 +294,20 @@ type Pooled = ArtistCandidate | TrackCandidate;
 const creditsOf = (item: Pooled): string[] =>
 	"name" in item ? [item.name] : [item.artist];
 
+/**
+ * Whether the intent rules out a candidate: one of its credited artists is
+ * an artist the brief excludes.
+ */
+export const excludedBy = (intent: Pick<Intent, "exclusions"> | null) => {
+	const names = (intent?.exclusions ?? [])
+		.filter((rule) => rule.kind === "artist")
+		.map((rule) => rule.value);
+	return (item: Pooled): boolean => {
+		const artists = creditsOf(item);
+		return names.some((name) => creditsArtist(name, artists));
+	};
+};
+
 /** Keys one candidate claims: its MusicBrainz id and every credited artist. */
 const keysOf = (item: Pooled): string[] =>
 	[
@@ -536,9 +550,7 @@ export async function searchForCandidates({
 		systemPrompt: SYSTEM,
 		userPrompt,
 	} as const;
-	const excludedArtists = (intent?.exclusions ?? [])
-		.filter((rule) => rule.kind === "artist")
-		.map((rule) => rule.value);
+	const excludes = excludedBy(intent);
 	let raw = "";
 
 	const planned = (async () => {
@@ -624,11 +636,11 @@ export async function searchForCandidates({
 	let known = 0;
 	/** Whether a candidate credited to these artists may be offered at all. */
 	const allowed = (item: Pooled): boolean => {
-		const artists = creditsOf(item);
-		if (excludedArtists.some((name) => creditsArtist(name, artists))) {
+		if (excludes(item)) {
 			excluded += 1;
 			return false;
 		}
+		const artists = creditsOf(item);
 		// Before the one-per-artist rule, so a collaboration with a known
 		// artist does not claim its other artist's place.
 		if (avoid && artists.some(avoid.has)) {

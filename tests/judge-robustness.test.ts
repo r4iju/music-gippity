@@ -6,6 +6,7 @@ import {
 	robustnessVariants,
 	shuffleTracks,
 } from "../evals/robustness";
+import { geminiStream, installFakeFetch } from "./fake-providers";
 
 const songs = ["a", "b", "c", "d", "e"].map((artist, index) => ({
 	artist,
@@ -40,25 +41,82 @@ test("two tracks always swap", () => {
 		).toEqual(["b", "a"]);
 });
 
-test("a paraphrase keeps every sentence of the description in another order", () => {
-	expect(
-		paraphraseDescription(
-			"Dark EBM for the floor. Spanish acts lead. No ballads!",
-		),
-	).toBe("No ballads! Spanish acts lead. Dark EBM for the floor.");
+/** The engine's paraphrase for one description, faked; restores fetch after. */
+async function paraphrasedBy(
+	reply: string,
+	description: string,
+	artists: string[] = [],
+) {
+	const original = globalThis.fetch;
+	const fake = installFakeFetch({ gemini: () => geminiStream(reply) });
+	try {
+		const outcome = await paraphraseDescription(
+			{
+				description,
+				songs: artists.map((artist) => ({ artist, title: `${artist} song` })),
+			},
+			"gemini",
+		);
+		return { outcome, fake };
+	} finally {
+		globalThis.fetch = original;
+	}
+}
+
+test("a paraphrase is one temperature-0 request to the judge's engine and is kept when it loses nothing", async () => {
+	const { outcome, fake } = await paraphrasedBy(
+		'No ballads here: this EBM set is anchored by D.A.F., over 4.5 hours, opening with "Der Mussolini".',
+		'D.A.F. anchors this EBM set for 4.5 hours, opening with "Der Mussolini". No ballads!',
+		["D.A.F."],
+	);
+	expect(outcome).toEqual({
+		status: "ok",
+		text: 'No ballads here: this EBM set is anchored by D.A.F., over 4.5 hours, opening with "Der Mussolini".',
+		missing: [],
+	});
+	expect(fake.requests).toHaveLength(1);
+	expect(fake.requests[0]?.url).toContain("generativelanguage.googleapis.com");
+	expect(fake.requests[0]?.body.generationConfig).toMatchObject({
+		temperature: 0,
+	});
 });
 
-test("a one-sentence description is paraphrased clause by clause", () => {
-	expect(
-		paraphraseDescription(
-			"Bossa nova para un domingo lluvioso, suave y cálida",
-		),
-	).toBe("suave y cálida, Bossa nova para un domingo lluvioso");
+test("a paraphrase that drops an artist name, a number or a quoted title is rejected with what it lost", async () => {
+	for (const [description, reply, artists, missing] of [
+		[
+			"D.A.F. anchors this EBM set. No ballads!",
+			"No ballads! F. anchors this EBM set.",
+			["D.A.F."],
+			["D.A.F."],
+		],
+		[
+			"A 4.5-hour disco journey. No remixes.",
+			"No remixes. 5-hour disco journey.",
+			[],
+			["4.5"],
+		],
+		[
+			'Opens with "Blue Monday", then builds.',
+			"It opens with a New Order classic, then builds.",
+			[],
+			["Blue Monday"],
+		],
+	] as const) {
+		const { outcome } = await paraphrasedBy(reply, description, [...artists]);
+		expect(outcome).toEqual({
+			status: "rejected",
+			text: reply,
+			missing: [...missing],
+		});
+	}
 });
 
-test("a description with nothing to reorder has no paraphrase", () => {
-	expect(paraphraseDescription("Nightcall.")).toBeNull();
-	expect(paraphraseDescription("")).toBeNull();
+test("a paraphrase the engine could not give is an error, and an empty description has none to ask for", async () => {
+	const { outcome } = await paraphrasedBy("", "Dark EBM for the floor.");
+	expect(outcome.status).toBe("error");
+	const { outcome: empty, fake } = await paraphrasedBy("unused", "  ");
+	expect(empty).toEqual({ status: "skipped" });
+	expect(fake.requests).toHaveLength(0);
 });
 
 test("padding keeps the description and adds text that promises nothing", () => {
@@ -74,7 +132,7 @@ test("padding keeps the description and adds text that promises nothing", () => 
 
 test("each variant changes one thing about the saved run", () => {
 	const run = { songs, description: "Loud. Fast.", brief: "Punk" };
-	const variants = robustnessVariants(run, 3);
+	const variants = robustnessVariants(run, 3, "Fast, and loud.");
 	expect(variants.map((variant) => variant.variant)).toEqual([
 		"shuffled",
 		"paraphrased",
@@ -85,17 +143,16 @@ test("each variant changes one thing about the saved run", () => {
 	);
 	expect(shuffled?.description).toBe("Loud. Fast.");
 	expect(shuffled?.songs).not.toEqual(songs);
-	expect(paraphrased).toEqual({ ...run, description: "Fast. Loud." });
+	expect(paraphrased).toEqual({ ...run, description: "Fast, and loud." });
 	expect(padded?.songs).toBe(songs);
 	expect(padded?.description).toStartWith("Loud. Fast. ");
 });
 
-test("a description with nothing to reorder skips the paraphrase", () => {
+test("without an accepted paraphrase the paraphrased variant is skipped", () => {
 	const run = { songs, description: "Loud.", brief: "Punk" };
-	expect(robustnessVariants(run, 3).map((variant) => variant.variant)).toEqual([
-		"shuffled",
-		"padded",
-	]);
+	expect(
+		robustnessVariants(run, 3, null).map((variant) => variant.variant),
+	).toEqual(["shuffled", "padded"]);
 });
 
 const fit = (reason = "ok") => ({ verdict: "fit" as const, reason });

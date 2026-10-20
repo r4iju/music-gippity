@@ -114,7 +114,10 @@ export const intoSlot = <S extends Song>(song: S, slot: Slot): S => ({
  * Eval-only: replaces the candidates found for the brief before the
  * curator sees them. Production never passes one.
  */
-export type SwapCandidates = (found: CandidatePool) => CandidatePool;
+export type SwapCandidates = (
+	found: CandidatePool,
+	intent: Intent | null,
+) => CandidatePool;
 
 /**
  * Builds the playlist a request asks for and streams it. The listener's
@@ -185,7 +188,7 @@ export async function generatePlaylistStream(
 			popularity: popularityBudget(creativity, purpose, trackCount, intent),
 		}),
 	);
-	const search = swapCandidates ? swapCandidates(found) : found;
+	const search = swapCandidates ? swapCandidates(found, intent) : found;
 	signal.throwIfAborted();
 	// An artist candidate is matched by any of its songs, and so is a chart
 	// track: the curator may pick another take than the chart's.

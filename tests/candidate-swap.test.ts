@@ -59,7 +59,7 @@ test("the swapped pool replaces what the curator is offered and what the run rec
 	};
 	const donor = pool(["Nitzer Ebb"], ["DAF"]);
 	// biome-ignore lint/suspicious/noExplicitAny: a partial event stands in for the full one.
-	const swapped = swapPool(found as any, donor);
+	const swapped = swapPool(found as any, donor, null);
 	expect(swapped.artists).toEqual(donor.artists);
 	expect(swapped.tracks).toEqual(donor.tracks);
 	expect(swapped.event).toMatchObject({
@@ -67,6 +67,34 @@ test("the swapped pool replaces what the curator is offered and what the run rec
 		totalMs: 10,
 		artists: donor.artists,
 		tracks: donor.tracks,
+	});
+});
+
+test("a donor's candidates by an artist the target case excludes are never offered", () => {
+	const found = {
+		...pool([]),
+		event: { kind: "candidates", status: "ok", artists: [], tracks: [] },
+	};
+	const donor = {
+		artists: [artist("Nitzer Ebb"), artist("Front 242")],
+		tracks: [chart("DAF"), chart("Nitzer Ebb & Douglas McCarthy")],
+	};
+	const swapped = swapPool(
+		// biome-ignore lint/suspicious/noExplicitAny: a partial event stands in for the full one.
+		found as any,
+		donor,
+		{
+			exclusions: [
+				{ kind: "artist", value: "Nitzer Ebb", quote: "no Nitzer Ebb" },
+				{ kind: "style", value: "DAF", quote: "nothing like DAF" },
+			],
+		},
+	);
+	expect(swapped.artists.map((a) => a.name)).toEqual(["Front 242"]);
+	expect(swapped.tracks.map((t) => t.artist)).toEqual(["DAF"]);
+	expect(swapped.event).toMatchObject({
+		artists: swapped.artists,
+		tracks: swapped.tracks,
 	});
 });
 
