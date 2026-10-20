@@ -169,7 +169,6 @@ export const playlistRouter = createTRPCRouter({
 						albumImage: z.string().optional().nullable(),
 						albumYear: z.number().optional().nullable(),
 						order: z.number(),
-						previewUrl: z.string().optional().nullable(),
 					}), // ts maging to check if this satisfies Song type
 				),
 			}),
@@ -211,7 +210,6 @@ export const playlistRouter = createTRPCRouter({
 					...song,
 					// all optional values shall be null
 					songId: song.songId ?? null,
-					previewUrl: song.previewUrl ?? null,
 					albumImage: song.albumImage ?? null,
 					albumYear: song.albumYear ?? null,
 					playlistId: playlistId,

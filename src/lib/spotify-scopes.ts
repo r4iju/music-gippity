@@ -2,8 +2,8 @@
 // here is read or written by a named feature. Adding a scope means
 // existing sessions keep the old grant until the listener signs in again.
 export const SPOTIFY_SCOPES = [
-	// Creating the playlist in the listener's account.
-	"playlist-modify-public",
+	// Creating the playlist in the listener's account. Playlists are created
+	// private, so adding items to them needs nothing more.
 	"playlist-modify-private",
 	// Signing in: the profile is the account.
 	"user-read-email",

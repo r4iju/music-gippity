@@ -1,3 +1,4 @@
+import type { PlaylistFormSchema } from "~/app/dashboard/create-playlist/playlist-form-schema";
 import type { EngineId } from "~/lib/engines";
 import { groundIntent, type Intent, ReadIntentSchema } from "~/lib/intent";
 import { requestEngineText } from "~/server/api/engines";
@@ -15,8 +16,9 @@ Hard rules must quote the brief: vocalRule.quote, every exclusion quote and ever
 vocalRule.rule is "no-vocals" only when the brief requires music without voices or excludes all vocals, "vocals-welcome" when it explicitly wants or allows singing, otherwise "none".
 Exclusion kinds: artist (a named act to avoid), style (a genre or sound to avoid), version (live, remix, cover, remaster, karaoke and similar to avoid).
 album is set only when the brief asks for a whole album or record, such as a soundtrack or an album played in order; otherwise null.
+classics is set only when the brief literally asks for well-known music, with wording such as "best ... hits", "classics", "greatest", "essential" or "anthems"; its quote is that wording copied verbatim. A brief that only names a genre, era or scene ("80s disco") is not a classics request: null.
 Return JSON only, no markdown:
-{"genres":["..."],"era":{"start":1990,"end":1999}|null,"mood":"...or null","energy":"...or null","language":"language or scene, or null","vocalRule":{"rule":"none|no-vocals|vocals-welcome","quote":"exact substring or null"},"exclusions":[{"kind":"artist|style|version","value":"...","quote":"exact substring"}],"mustInclude":[{"artist":"...","quote":"exact substring"}],"album":{"quote":"exact substring"}|null}`;
+{"genres":["..."],"era":{"start":1990,"end":1999}|null,"mood":"...or null","energy":"...or null","language":"language or scene, or null","vocalRule":{"rule":"none|no-vocals|vocals-welcome","quote":"exact substring or null"},"exclusions":[{"kind":"artist|style|version","value":"...","quote":"exact substring"}],"mustInclude":[{"artist":"...","quote":"exact substring"}],"album":{"quote":"exact substring"}|null,"classics":{"quote":"exact substring"}|null}`;
 
 /** The brief read into an intent, or null when the read fails or times out. */
 export async function readIntent(
@@ -49,4 +51,17 @@ export async function readIntent(
 		);
 		return null;
 	}
+}
+
+/** The request's brief read into an intent, less any reading its settings switch off. */
+export async function readRequestIntent(
+	settings: Pick<PlaylistFormSchema, "prompt" | "classics">,
+	signal?: AbortSignal,
+	userId?: string,
+	strict = false,
+): Promise<Intent | null> {
+	const intent = await readIntent(settings.prompt, signal, userId, strict);
+	return intent && settings.classics === "off"
+		? { ...intent, classics: null }
+		: intent;
 }

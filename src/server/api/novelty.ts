@@ -7,12 +7,17 @@ import { PURPOSE, type Purpose } from "~/lib/purpose";
 import { familiarityOf, type KnownSet } from "~/server/api/known";
 import { takeGrounded } from "~/server/api/repair";
 
-/** The purpose's novelty budget for a playlist of this length, if it has one. */
+/**
+ * The purpose's novelty budget for a playlist of this length, if it has
+ * one. A classics request asks for songs the listener may well know, so it
+ * has none.
+ */
 export function noveltyBudget(
 	purpose: Purpose,
 	trackCount: number,
+	intent: Pick<Intent, "classics"> | null,
 ): NoveltyBudget | null {
-	const rule = PURPOSE[purpose].novelty;
+	const rule = intent?.classics ? null : PURPOSE[purpose].novelty;
 	return (
 		rule && {
 			knownTracks: rule.knownTracks,

@@ -8,6 +8,7 @@ import { TEST_SESSION } from "../tests/setup";
 import { CASES } from "./cases";
 import { judgePlaylist } from "./judge";
 import { loadListener } from "./listener";
+import { clientCredentialsToken } from "./live";
 import {
 	type CaseRecord,
 	type EvalRun,
@@ -35,22 +36,6 @@ function select<T extends string>(
 	)
 		throw new Error(`${name}: choose from ${available.join(", ")}`);
 	return requested as T[];
-}
-
-async function clientCredentialsToken(): Promise<string> {
-	const id = process.env.SPOTIFY_CLIENT_ID;
-	const secret = process.env.SPOTIFY_CLIENT_SECRET;
-	if (!id || !secret) throw new Error("SPOTIFY_CLIENT_ID/SECRET missing");
-	const res = await fetch("https://accounts.spotify.com/api/token", {
-		method: "POST",
-		headers: {
-			"Content-Type": "application/x-www-form-urlencoded",
-			Authorization: `Basic ${btoa(`${id}:${secret}`)}`,
-		},
-		body: "grant_type=client_credentials",
-	});
-	if (!res.ok) throw new Error(`Spotify token HTTP ${res.status}`);
-	return ((await res.json()) as { access_token: string }).access_token;
 }
 
 test(

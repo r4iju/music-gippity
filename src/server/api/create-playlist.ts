@@ -18,14 +18,17 @@ import {
 } from "~/lib/playlist-stream";
 import { popularityBudget } from "~/lib/popularity";
 import { type Resolution, UNRESOLVED } from "~/lib/resolution";
-import { searchForCandidates } from "~/server/api/candidates";
+import {
+	type CandidatePool,
+	searchForCandidates,
+} from "~/server/api/candidates";
 import { runEngine } from "~/server/api/engines";
 import {
 	curatorSystemPrompt,
 	playlistPrompt,
 } from "~/server/api/engines/common";
 import { gatherEvidence } from "~/server/api/evidence";
-import { readIntent } from "~/server/api/intent";
+import { readRequestIntent } from "~/server/api/intent";
 import { familiarityOf, fetchKnown, type KnownSet } from "~/server/api/known";
 import { type Listener, spotifyListener } from "~/server/api/listener";
 import {
@@ -40,7 +43,7 @@ import {
 import { repairFromEvidence } from "~/server/api/repair";
 import { suggestReplacement } from "~/server/api/replacement";
 import { otherEngine, rerankPlaylist } from "~/server/api/rerank";
-import { findSpotifyTrack } from "~/server/api/spotify";
+import { findSpotifyTrack, TOKEN_MARKET } from "~/server/api/spotify";
 import { processEngineStream } from "~/server/api/stream-helpers";
 import { repairVocalTracks } from "~/server/api/vocal-repair";
 import { auth } from "~/server/auth";
@@ -75,6 +78,7 @@ export async function enrichSongWithSpotify(
 	song: StreamedSong,
 	spotifyToken: string,
 	intent: Intent | null,
+	market = TOKEN_MARKET,
 ): Promise<Enrichment> {
 	try {
 		const enriched = await findSpotifyTrack({
@@ -86,6 +90,7 @@ export async function enrichSongWithSpotify(
 			},
 			token: spotifyToken,
 			intent,
+			market,
 		});
 		const merged = { ...song, ...enriched };
 		return { status: merged.songId ? "found" : "missing", song: merged };
@@ -106,11 +111,21 @@ export const intoSlot = <S extends Song>(song: S, slot: Slot): S => ({
 });
 
 /**
+ * Eval-only: replaces the candidates found for the brief before the
+ * curator sees them. Production never passes one.
+ */
+export type SwapCandidates = (found: CandidatePool) => CandidatePool;
+
+/**
  * Builds the playlist a request asks for and streams it. The listener's
  * account is read through `listener`, the signed-in Spotify account unless
  * an eval supplies a fixture.
  */
-export async function createPlaylist(req: Request, listener?: Listener) {
+export async function createPlaylist(
+	req: Request,
+	listener?: Listener,
+	swapCandidates?: SwapCandidates,
+) {
 	const session = await auth();
 	if (!session) return new Response("Unauthorized", { status: 401 });
 	return generatePlaylistStream(
@@ -121,6 +136,7 @@ export async function createPlaylist(req: Request, listener?: Listener) {
 			signal: req.signal,
 		},
 		listener,
+		swapCandidates,
 	);
 }
 
@@ -133,6 +149,7 @@ export async function generatePlaylistStream(
 		playlistId?: string;
 	},
 	listener?: Listener,
+	swapCandidates?: SwapCandidates,
 ) {
 	const cancellation = new AbortController();
 	const signal = AbortSignal.any([context.signal, cancellation.signal]);
@@ -143,18 +160,18 @@ export async function generatePlaylistStream(
 	const { prompt, trackCount, creativity, engine, purpose } = validatedData;
 
 	const playlistId = context.playlistId ?? uuidv4();
-	const budget = noveltyBudget(purpose, trackCount);
 	// The known set is read alongside the intent. A capped purpose filters
 	// known artists out of the candidate lookups, which then wait for it;
 	// otherwise only the songs need it, so it is awaited once the stream
 	// starts. It never reaches an engine.
 	const knownRead = fetchKnown(account, userId);
-	const intent = await readIntent(prompt, signal, userId);
+	const intent = await readRequestIntent(validatedData, signal, userId);
 	signal.throwIfAborted();
+	const budget = noveltyBudget(purpose, trackCount, intent);
 	const avoidRead = budget
 		? knownRead.then((known) => avoidedArtists(known.set))
 		: null;
-	const search = await (avoidRead ?? Promise.resolve(null)).then((avoid) =>
+	const found = await (avoidRead ?? Promise.resolve(null)).then((avoid) =>
 		searchForCandidates({
 			userId,
 			signal,
@@ -165,9 +182,10 @@ export async function generatePlaylistStream(
 			creativity,
 			avoid,
 			// Drawn for the requested length: nothing has resolved yet.
-			popularity: popularityBudget(creativity, purpose, trackCount),
+			popularity: popularityBudget(creativity, purpose, trackCount, intent),
 		}),
 	);
+	const search = swapCandidates ? swapCandidates(found) : found;
 	signal.throwIfAborted();
 	// An artist candidate is matched by any of its songs, and so is a chart
 	// track: the curator may pick another take than the chart's.
@@ -202,6 +220,7 @@ export async function generatePlaylistStream(
 			purpose,
 			candidateArtists: search?.artists,
 			candidateTracks: search?.tracks,
+			classics: Boolean(intent?.classics),
 		}),
 		temperature: CREATIVITY[creativity].temperature,
 	});
@@ -311,6 +330,7 @@ export async function generatePlaylistStream(
 					replacement,
 					spotifyToken,
 					intent,
+					account.market,
 				);
 				const song = intoSlot(enriched.song, slot);
 				if (enriched.status === "found" && caps.conflicts(song)) {
@@ -337,6 +357,7 @@ export async function generatePlaylistStream(
 					song,
 					spotifyToken,
 					intent,
+					account.market,
 				);
 				if (enriched.status === "failed") {
 					// The row keeps the pick's artist, so hold that name for it.
@@ -407,6 +428,7 @@ export async function generatePlaylistStream(
 								{ ...line, id: uuidv4() },
 								spotifyToken,
 								intent,
+								account.market,
 							).then((entry) => {
 								if (
 									!signal.aborted &&
@@ -488,6 +510,7 @@ export async function generatePlaylistStream(
 				),
 				caps,
 				token: spotifyToken,
+				market: account.market,
 				emit,
 			});
 			// A substitute is the reviewer's own suggestion, never a candidate.
@@ -521,6 +544,7 @@ export async function generatePlaylistStream(
 				creativity,
 				purpose,
 				[...songs.values()].filter((song) => song.songId).length,
+				intent,
 			);
 			const popularitySwaps = popularity
 				? await enforcePopularityBudget({

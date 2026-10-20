@@ -19,6 +19,7 @@ import {
 import { type PopularitySummary, summarizePopularity } from "~/lib/popularity";
 import type { Purpose } from "~/lib/purpose";
 import type { ResolutionAttempt, ResolutionTier } from "~/lib/resolution";
+import type { SwapCandidates } from "~/server/api/create-playlist";
 import {
 	curatorSystemPrompt,
 	playlistPrompt,
@@ -105,12 +106,14 @@ export const readPlaylistLine = (line: string) => {
 /**
  * Runs one case through the playlist handler. A live eval passes the fixture
  * listener, since its token cannot read an account; a test leaves the
- * session's fakes in place.
+ * session's fakes in place. `swapCandidates` replaces the candidates the
+ * curator is offered, for the candidate-swap eval.
  */
 export async function runCase(
 	evalCase: EvalCase,
 	engine: EngineId,
 	listener?: Listener,
+	swapCandidates?: SwapCandidates,
 ): Promise<RunResult> {
 	const started = performance.now();
 	const res = await createPlaylist(
@@ -126,6 +129,7 @@ export async function runCase(
 			}),
 		}),
 		listener,
+		swapCandidates,
 	);
 	if (!res.ok || !res.body)
 		throw new Error(`${engine} generation HTTP ${res.status}`);

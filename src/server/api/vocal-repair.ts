@@ -154,6 +154,7 @@ export async function repairVocalTracks({
 	reviewable = songs,
 	caps,
 	token,
+	market,
 	emit,
 }: {
 	strict?: boolean;
@@ -168,6 +169,8 @@ export async function repairVocalTracks({
 	/** The songs whose vocal status no evidence settled. */
 	reviewable?: Song[];
 	token: string;
+	/** Where substitutes must play; the token's own market by default. */
+	market?: string;
 	emit: (event: VocalReviewEvent | VocalRepairEvent) => void;
 }): Promise<Song[]> {
 	if (!needsVocalReview(brief, intent)) return [];
@@ -215,6 +218,7 @@ export async function repairVocalTracks({
 				song: { id: original.id, order: original.order, ...track.replacement },
 				token,
 				intent,
+				market,
 			});
 			outcome.resolved = proposal;
 			const creditedArtists =
