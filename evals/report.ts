@@ -98,7 +98,8 @@ const count = (value: number | null) =>
 	value === null ? "n/a" : compact.format(value);
 
 const popularityCells = (p: PopularitySummary) => [
-	`${count(p.median.lastfm)} / ${count(p.median.listenbrainz)}`,
+	// Older results have no Deezer median.
+	`${count(p.median.lastfm)} / ${count(p.median.listenbrainz)} / ${count(p.median.deezer ?? null)}`,
 	`${p.mainstream}/${p.recordings}`,
 	`${p.unknown}/${p.recordings}`,
 ];
@@ -190,7 +191,7 @@ export function summaryRow(record: CaseRecord): string {
 }
 
 export const TABLE_HEADER =
-	"| case | engine | purpose | first song | generation | tracks | artists | on Spotify | exact or normalized | fuzzy | exact / normalized / fuzzy / unresolved | first try | first / retry / replacement | drift | replaced | pool | known / artist | budget | median listeners (Last.fm / LB) | mainstream | unknown listeners | popularity budget | candidates | from candidates | candidate sources (pool → used) | repaired | filled / pruned | fit / mismatch / uncertain (advisory) | judge | eval | same as last run |\n|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|";
+	"| case | engine | purpose | first song | generation | tracks | artists | on Spotify | exact or normalized | fuzzy | exact / normalized / fuzzy / unresolved | first try | first / retry / replacement | drift | replaced | pool | known / artist | budget | median listeners (Last.fm / LB / Deezer) | mainstream | unknown listeners | popularity budget | candidates | from candidates | candidate sources (pool → used) | repaired | filled / pruned | fit / mismatch / uncertain (advisory) | judge | eval | same as last run |\n|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|";
 
 export function renderReport(run: EvalRun): string {
 	const lines = [

@@ -122,12 +122,14 @@ export function deezerTrack({
 	bpm = 120,
 	gain = -7.5,
 	titleVersion = "",
+	rank = 1000,
 }: {
 	bpm?: number;
 	gain?: number;
 	titleVersion?: string;
+	rank?: number;
 } = {}) {
-	return json({ id: 1, bpm, gain, title_version: titleVersion });
+	return json({ id: 1, bpm, gain, title_version: titleVersion, rank });
 }
 
 /** A Last.fm track.getInfo answer; Last.fm sends counts as strings. */

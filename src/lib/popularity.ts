@@ -10,11 +10,19 @@ import type { Purpose } from "./purpose";
  * their scene (Padam Padam 383k, Nightcall 1.25M) and scene staples
  * (Brokendate 244k, Roller Mobster 233k), near the 92nd percentile of
  * run 7's eval picks. ListenBrainz's, the fallback, sits near the 75th
- * percentile of the picks it counted (#51).
+ * percentile of the picks it counted (#51). Deezer's is a track rank, not
+ * a count; asked last, it sits near the 90th percentile of the 533 saved
+ * eval picks both Deezer and Last.fm counted, where it agrees with
+ * Last.fm's split on 91% of them and errs about as often either way:
+ * Flashback (rank 501k, Last.fm 271k) and Inspector Norse (538k, 265k)
+ * above, Future Club (482k, 203k) and Looped (480k, 194k) below. A higher
+ * rank agrees slightly more (92% at 550k) by missing half of Last.fm's
+ * mainstream (#10).
  */
 export const MAINSTREAM_LISTENERS: Record<ListenerSource, number> = {
 	lastfm: 250000,
 	listenbrainz: 5000,
+	deezer: 500000,
 };
 
 /**
@@ -67,6 +75,8 @@ export interface PopularitySummary {
 	recordings: number;
 	/** Median listener count per source, over the recordings it counted. */
 	median: Record<ListenerSource, number | null>;
+	/** How many recordings each source counted. */
+	counted: Record<ListenerSource, number>;
 	mainstream: number;
 	unknown: number;
 }
@@ -89,8 +99,14 @@ export function summarizePopularity(
 	return {
 		recordings: counts.length,
 		median: {
-			listenbrainz: median(from("listenbrainz")),
 			lastfm: median(from("lastfm")),
+			listenbrainz: median(from("listenbrainz")),
+			deezer: median(from("deezer")),
+		},
+		counted: {
+			lastfm: from("lastfm").length,
+			listenbrainz: from("listenbrainz").length,
+			deezer: from("deezer").length,
 		},
 		mainstream: counts.filter((c) => mainstreamStatus(c) === "mainstream")
 			.length,

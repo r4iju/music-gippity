@@ -242,7 +242,16 @@ const PopularityCountsSchema = z.object({
 	median: z.object({
 		lastfm: z.number().nullable(),
 		listenbrainz: z.number().nullable(),
+		// Deezer and the per-source counts are absent from older lines.
+		deezer: z.number().nullable().optional(),
 	}),
+	counted: z
+		.object({
+			lastfm: z.number().int(),
+			listenbrainz: z.number().int(),
+			deezer: z.number().int(),
+		})
+		.optional(),
 });
 
 /**

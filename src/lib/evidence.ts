@@ -13,7 +13,7 @@ export const EVIDENCE_SOURCES = [
 export type EvidenceSource = (typeof EVIDENCE_SOURCES)[number];
 
 /** Sources that count listeners, in the order they are asked. */
-export const LISTENER_SOURCES = ["lastfm", "listenbrainz"] as const;
+export const LISTENER_SOURCES = ["lastfm", "listenbrainz", "deezer"] as const;
 export type ListenerSource = (typeof LISTENER_SOURCES)[number];
 
 /** Why a source gave no fact: no record, a failure, a deadline, or no key. */

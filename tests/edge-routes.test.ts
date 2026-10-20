@@ -1355,7 +1355,11 @@ describe("playlist generation core", () => {
 			trackCriteria: [],
 			playlistCriteria: [],
 		};
-		const { lastfm: LASTFM, listenbrainz: LISTENBRAINZ } = MAINSTREAM_LISTENERS;
+		const {
+			lastfm: LASTFM,
+			listenbrainz: LISTENBRAINZ,
+			deezer: DEEZER,
+		} = MAINSTREAM_LISTENERS;
 		/** Nightcall at the Last.fm threshold, Sunset just under it. */
 		const lastfmCounts = (params: URLSearchParams) =>
 			lastfmTrack({
@@ -1381,7 +1385,8 @@ describe("playlist generation core", () => {
 			});
 			expect(result.popularity).toEqual({
 				recordings: 2,
-				median: { listenbrainz: null, lastfm: LASTFM - 0.5 },
+				median: { lastfm: LASTFM - 0.5, listenbrainz: null, deezer: null },
+				counted: { lastfm: 2, listenbrainz: 0, deezer: 0 },
 				mainstream: 1,
 				unknown: 0,
 			});
@@ -1430,6 +1435,61 @@ describe("playlist generation core", () => {
 				{ value: LISTENBRAINZ, source: "listenbrainz" },
 			]);
 			expect(result.popularity?.mainstream).toBe(2);
+		});
+
+		test("Deezer's rank counts listeners when neither Last.fm nor ListenBrainz does, judged by its own threshold", async () => {
+			const fake = installFakeFetch({
+				openai: () => openaiStream(TWO),
+				musicbrainz: (isrc) => musicbrainzRecording({ mbid: `mb-${isrc}` }),
+				listenbrainz: () => Response.json([]),
+				deezer: (isrc) =>
+					deezerTrack({
+						rank: isrc.includes("kavinsky") ? DEEZER : DEEZER - 1,
+					}),
+			});
+			const result = await runCase(CASE, "chatgpt");
+			expect(result.songs.map((s) => s.evidence?.listeners)).toEqual([
+				{ value: DEEZER, source: "deezer" },
+				{ value: DEEZER - 1, source: "deezer" },
+			]);
+			expect(result.popularity).toEqual({
+				recordings: 2,
+				median: { lastfm: null, listenbrainz: null, deezer: DEEZER - 0.5 },
+				counted: { lastfm: 0, listenbrainz: 0, deezer: 2 },
+				mainstream: 1,
+				unknown: 0,
+			});
+			// The rank rides on the lookup that reads tempo and gain.
+			expect(providerCalls(fake, "api.deezer.com")).toHaveLength(2);
+		});
+
+		test("Last.fm, then ListenBrainz, wins over Deezer's rank", async () => {
+			const deezer = () => deezerTrack({ rank: DEEZER });
+			const musicbrainz = (isrc: string) =>
+				musicbrainzRecording({ mbid: `mb-${isrc}` });
+			installFakeFetch({
+				openai: () => openaiStream(TWO),
+				musicbrainz,
+				listenbrainz: (mbids) => listenbrainzPopularity(mbids[0] ?? "", 42),
+				lastfm: lastfmCounts,
+				deezer,
+			});
+			const lastfmFirst = await runCase(CASE, "chatgpt");
+			expect(
+				lastfmFirst.songs.map((s) => s.evidence?.listeners?.source),
+			).toEqual(["lastfm", "lastfm"]);
+			installFakeFetch({
+				openai: () => openaiStream(TWO),
+				musicbrainz,
+				listenbrainz: (mbids) => listenbrainzPopularity(mbids[0] ?? "", 42),
+				deezer,
+			});
+			const listenbrainzNext = await runCase(CASE, "chatgpt");
+			expect(listenbrainzNext.songs[0]?.evidence?.listeners).toEqual({
+				value: 42,
+				source: "listenbrainz",
+			});
+			expect(listenbrainzNext.popularity?.mainstream).toBe(0);
 		});
 
 		test("ListenBrainz counts listeners when Last.fm fails or counts nobody", async () => {
@@ -1550,7 +1610,8 @@ describe("playlist generation core", () => {
 			expect(result.songs[0]?.evidence?.sources.lastfm).toBe("unknown");
 			expect(result.popularity).toEqual({
 				recordings: 2,
-				median: { listenbrainz: null, lastfm: null },
+				median: { lastfm: null, listenbrainz: null, deezer: null },
+				counted: { lastfm: 0, listenbrainz: 0, deezer: 0 },
 				mainstream: 0,
 				unknown: 2,
 			});
@@ -1563,9 +1624,9 @@ describe("playlist generation core", () => {
 				overlap: "n/a",
 			}).split(" | ");
 			expect(row).toHaveLength(header.length);
-			expect(row[header.indexOf("median listeners (Last.fm / LB)")]).toBe(
-				"n/a / n/a",
-			);
+			expect(
+				row[header.indexOf("median listeners (Last.fm / LB / Deezer)")],
+			).toBe("n/a / n/a / n/a");
 			expect(row[header.indexOf("mainstream")]).toBe("0/2");
 			expect(row[header.indexOf("unknown listeners")]).toBe("2/2");
 		});
@@ -3703,6 +3764,28 @@ describe("playlist generation core", () => {
 				expect(systemPrompt).toContain(status);
 		});
 
+		test("Room keeps picks Last.fm does not count when Deezer ranks them mainstream", async () => {
+			installFakeFetch({
+				gemini: () => geminiStream(curate("Golf", "Hotel")),
+				spotify,
+				lastfm: listeners({ Golf: HIT, Hotel: HIT }),
+				deezer: () => deezerTrack({ rank: MAINSTREAM_LISTENERS.deezer }),
+			});
+			const lines = await create({ purpose: "room" });
+			expect(slots(lines).map((s) => [s.artist, s.origin])).toEqual(
+				SIX.map((artist) => [artist, "pick"]),
+			);
+			expect(popularityLine(lines)).toMatchObject({
+				status: "held",
+				budget: { maxMainstream: null, minMainstream: 3 },
+				recordings: 6,
+				mainstream: 6,
+				unknown: 0,
+				counted: { lastfm: 0, listenbrainz: 0, deezer: 6 },
+				swapped: [],
+			});
+		});
+
 		test("Room lifts a set below half mainstream from the pool, replacing the least-heard counted picks first", async () => {
 			installFakeFetch({
 				gemini: () => geminiStream(curate("Golf", "Hotel", "India")),
@@ -3826,7 +3909,8 @@ describe("playlist generation core", () => {
 				recordings: 6,
 				mainstream: 6,
 				unknown: 0,
-				median: { lastfm: HIT, listenbrainz: null },
+				median: { lastfm: HIT, listenbrainz: null, deezer: null },
+				counted: { lastfm: 6, listenbrainz: 0, deezer: 0 },
 			});
 		});
 

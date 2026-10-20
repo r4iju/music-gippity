@@ -114,3 +114,22 @@ test("an older result without attempts still renders, its first-try columns n/a"
 	});
 	expect(report).toContain("| Artist 4 — Title 4 |");
 });
+
+test("an older listener summary without Deezer still renders, its Deezer median n/a", () => {
+	const cell = columns(
+		summaryRow(
+			record({
+				...SAVED,
+				popularity: {
+					recordings: 5,
+					median: { lastfm: 90000, listenbrainz: null },
+					mainstream: 1,
+					unknown: 0,
+				},
+			} as unknown as RunResult),
+		),
+	);
+	expect(cell("median listeners (Last.fm / LB / Deezer)")).toBe(
+		"90K / n/a / n/a",
+	);
+});

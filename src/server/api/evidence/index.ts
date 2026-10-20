@@ -140,6 +140,7 @@ const deezerLookup = (ref: RecordingRef) =>
 		bpm: number | null;
 		gain: number | null;
 		version: string | null;
+		rank: number | null;
 	}>(async (signal) => {
 		if (!ref.isrc) return unknown;
 		const res = await request(
@@ -152,6 +153,7 @@ const deezerLookup = (ref: RecordingRef) =>
 			bpm?: number;
 			gain?: number;
 			title_version?: string;
+			rank?: number;
 		};
 		if (body.error) return unknown;
 		return {
@@ -160,6 +162,8 @@ const deezerLookup = (ref: RecordingRef) =>
 				bpm: body.bpm || null,
 				gain: typeof body.gain === "number" ? body.gain : null,
 				version: body.title_version?.trim() || null,
+				// A rank of 0, like a Last.fm count of 0, says nothing of the song.
+				rank: body.rank || null,
 			},
 		};
 	});
@@ -223,10 +227,12 @@ export async function gatherEvidence(ref: RecordingRef): Promise<Evidence> {
 		tags: factFrom(lastfm, "lastfm", (v) => (v.tags.length ? v.tags : null)),
 		// Last.fm counts a large general audience across a song's versions, and
 		// counted all but one of 209 eval picks where ListenBrainz, per
-		// MusicBrainz recording and leaning indie, missed 63% (#51).
+		// MusicBrainz recording and leaning indie, missed 63% (#51). Deezer's
+		// rank, asked last, catches widely played songs both miss.
 		listeners:
 			factFrom(lastfm, "lastfm", (v) => v.listeners) ??
-			factFrom(listeners, "listenbrainz", (v) => v),
+			factFrom(listeners, "listenbrainz", (v) => v) ??
+			factFrom(deezer, "deezer", (v) => v.rank),
 		sources: {
 			musicbrainz: mb.status,
 			lrclib: lyrics.status,
