@@ -164,7 +164,21 @@ async function generate() {
 					vocalRule: { rule: "no-vocals", quote: "no vocals" },
 				}),
 			),
-		scene: () => '{"tags":["synthwave"],"area":null,"labels":[]}',
+		// Two candidates for three tracks is a thin pool, so the scene is
+		// widened too.
+		scene: (_brief, widen) =>
+			JSON.stringify(
+				widen
+					? {
+							tags: ["synthwave", "electronic"],
+							area: null,
+							intent: {
+								genres: ["synthwave", "electronic"],
+								vocalRule: { rule: "no-vocals", quote: "no vocals" },
+							},
+						}
+					: { tags: ["synthwave"], area: null, labels: [] },
+			),
 		musicbrainzSearch: () =>
 			musicbrainzArtists([{ id: "mb-artist-a", name: "Artist A" }]),
 		lastfm: lastfmApi({ charts: { synthwave: [["Artist B", "Song B"]] } }),
@@ -269,6 +283,7 @@ test("nothing read from Spotify reaches an engine, while every stage that reads 
 	for (const stage of [
 		'{"task":"read-brief"',
 		'{"task":"plan-scene"',
+		'"widen":{"plan":{"tags":["synthwave"]',
 		"Build a 3-track playlist",
 		"Suggest ONE new song",
 		`{"task":"review-vocals","brief":"${BRIEF}","allowReplacements":true`,

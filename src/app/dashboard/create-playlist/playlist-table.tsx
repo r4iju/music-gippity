@@ -340,7 +340,11 @@ export default function PlaylistTable() {
 						</DropdownMenu>
 					</header>
 
-					<IntentChips intent={playlist.intent} purpose={playlist.purpose} />
+					<IntentChips
+						intent={playlist.intent}
+						purpose={playlist.purpose}
+						widened={playlist.widened}
+					/>
 
 					{/* Description */}
 					{playlist.description.length > 0 && (

@@ -5,6 +5,8 @@ export type Chip = {
 	label: string;
 	quote?: string;
 	title?: string;
+	/** A note is the app's own, not something read from the brief or picked. */
+	tone?: "note";
 };
 
 function eraLabel(era: NonNullable<Intent["era"]>): string | null {
@@ -13,6 +15,20 @@ function eraLabel(era: NonNullable<Intent["era"]>): string | null {
 	if (era.start !== null) return `From ${era.start}`;
 	if (era.end !== null) return `Until ${era.end}`;
 	return null;
+}
+
+/**
+ * The note that the lookups went past the brief once. It follows the
+ * brief's chips because the app, not the listener, wrote it.
+ */
+export function widenedChip(label: string): Chip {
+	return {
+		key: "widened",
+		label,
+		tone: "note",
+		title:
+			"Too few candidates matched your brief exactly, so the lookup was widened once. Your rules still apply to every song.",
+	};
 }
 
 /** The intent as a flat list of chips, in the order a listener reads a brief. */

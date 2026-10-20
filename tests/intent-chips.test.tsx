@@ -69,4 +69,18 @@ describe("IntentChips", () => {
 		expect(html).toContain(">Discover<");
 		expect(html).not.toContain("synthwave");
 	});
+
+	test("a widened lookup is the last chip, its tooltip saying why", () => {
+		const html = renderToStaticMarkup(
+			<IntentChips intent={INTENT} widened="Widened to Europe, electronic" />,
+		);
+		expect(html).toMatch(
+			/<li title="Too few candidates matched your brief[^"]*"[^>]*>Widened to Europe, electronic<\/li><\/ul>$/,
+		);
+		expect(
+			renderToStaticMarkup(
+				<IntentChips intent={null} widened="Widened to Europe" />,
+			),
+		).toContain(">Widened to Europe<");
+	});
 });

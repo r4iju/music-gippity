@@ -46,6 +46,7 @@ import {
 	spotifyTracks,
 	titleOf,
 	topTracks,
+	type WidenRequest,
 } from "./fake-providers";
 import {
 	appSongFailure,
@@ -1710,6 +1711,11 @@ describe("playlist generation core", () => {
 			]);
 		});
 
+		/** Scene plans for the brief itself; a thin pool also asks for a widened one. */
+		const originalPlans = (fake: { scenePlans: RecordedRequest[] }) =>
+			fake.scenePlans.filter(
+				(call) => !("widen" in JSON.parse(geminiPrompt(call) ?? "{}")),
+			);
 		const easy = () => geminiStream(JSON.stringify({ genres: ["synthwave"] }));
 		const create = async (
 			body: Record<string, unknown>,
@@ -1739,7 +1745,7 @@ describe("playlist generation core", () => {
 		] as const)
 			test(`${label} plans the scene even when the intent is easy`, async () => {
 				const { fake, lines } = await create(body);
-				expect(fake.scenePlans).toHaveLength(1);
+				expect(originalPlans(fake)).toHaveLength(1);
 				const event = CandidatesEventSchema.parse(
 					lines.find((line) => line.kind === "candidates"),
 				);
@@ -1766,7 +1772,7 @@ describe("playlist generation core", () => {
 				{ purpose: "discover" },
 				{ intent: () => geminiStream("") },
 			);
-			expect(fake.scenePlans).toHaveLength(1);
+			expect(originalPlans(fake)).toHaveLength(1);
 			expect(generationPrompt(fake)).toContain("Artists MusicBrainz lists");
 		});
 
@@ -1971,6 +1977,161 @@ describe("playlist generation core", () => {
 				overlap: "n/a",
 			}).split(" | ");
 			expect(row[header.indexOf("from candidates")]).toBe("skipped");
+		});
+
+		describe("widening", () => {
+			const ORIGINAL = { tags: ["synthwave"], area: "Spain", labels: [] };
+			/** The intent as the widened plan restates it, broadened where allowed. */
+			const restated = (changes: Record<string, unknown> = {}) => ({
+				genres: ["synthwave", "electronic"],
+				era: { start: 1978, end: 1992 },
+				language: null,
+				vocalRule: { rule: "none", quote: null },
+				exclusions: [
+					{ kind: "artist", value: "Daft Punk", quote: "nada de Daft Punk" },
+				],
+				mustInclude: [],
+				...changes,
+			});
+			const widenedScene =
+				(intent: Record<string, unknown> = restated()) =>
+				(_brief: string, widen?: WidenRequest) =>
+					JSON.stringify(
+						widen
+							? { tags: ["synthwave", "electronic"], area: "Europe", intent }
+							: ORIGINAL,
+					);
+			/** Spain's synthwave is one act; Europe's adds two more, one excluded. */
+			const thin = {
+				scene: widenedScene(),
+				musicbrainzSearch: (_entity: string, query: string) =>
+					musicbrainzArtists(
+						query.includes('"Europe"')
+							? [
+									...KAVINSKY,
+									{ id: "mb-brut", name: "Carpenter Brut" },
+									{ id: "mb-daft", name: "Daft Punk" },
+								]
+							: KAVINSKY,
+					),
+				lastfm: lastfmApi({
+					charts: { electronic: [["Perturbator", "Future Club"]] },
+				}),
+			};
+			const widening = (event: Record<string, unknown> | undefined) =>
+				CandidatesEventSchema.parse(event).widening;
+
+			test("too few candidates widen the scene once, and what it finds follows the originals", async () => {
+				const { fake, lines, event } = await run({
+					...thin,
+					// Released inside the widened era but outside the brief's.
+					musicbrainz: (isrc) =>
+						musicbrainzRecording({
+							mbid: `mb-${isrc}`,
+							firstReleaseDate: isrc.toLowerCase().includes("midnight")
+								? "1991-01-01"
+								: "1985-01-01",
+						}),
+				});
+				expect(fake.scenePlans).toHaveLength(2);
+				const request = JSON.parse(geminiPrompt(fake.scenePlans[1]) ?? "{}");
+				expect(request).toMatchObject({
+					task: "plan-scene",
+					brief: BRIEF,
+					widen: { plan: ORIGINAL, reason: expect.any(String) },
+				});
+				expect(event).toMatchObject({
+					status: "ok",
+					excluded: 1,
+					artists: [{ name: "Kavinsky" }, { name: "Carpenter Brut" }],
+					tracks: [{ artist: "Perturbator", title: "Future Club" }],
+				});
+				expect(widening(event)).toMatchObject({
+					status: "ok",
+					plan: {
+						tags: ["synthwave", "electronic"],
+						area: "Europe",
+						genres: ["synthwave", "electronic"],
+						era: { start: 1978, end: 1992 },
+					},
+					musicbrainz: [
+						{
+							source: "tag",
+							query: '(tag:"synthwave" OR tag:"electronic") AND area:"Europe"',
+							hits: 3,
+						},
+					],
+					lastfm: [{ query: "tag.getTopTracks electronic", hits: 1 }],
+					offered: 2,
+					label: "Widened to Europe, electronic",
+				});
+				const prompt = generationPrompt(fake) ?? "";
+				expect(prompt.indexOf("Kavinsky")).toBeLessThan(
+					prompt.indexOf("Carpenter Brut"),
+				);
+				expect(prompt).not.toContain("Daft Punk -");
+				// Repair still holds the brief's own era, not the widened one.
+				expect(lines.find((l) => l.kind === "repair")).toMatchObject({
+					rule: "era",
+					detail: expect.stringContaining("outside 1980–1989"),
+				});
+			});
+
+			for (const [label, change] of [
+				["drops an exclusion", { exclusions: [] } as Record<string, unknown>],
+				[
+					"changes the vocal rule",
+					{ vocalRule: { rule: "no-vocals", quote: null } },
+				],
+				["changes the language", { language: "English" }],
+				[
+					"extends the era by more than five years",
+					{ era: { start: 1974, end: 1989 } },
+				],
+			] as const)
+				test(`a widened plan that ${label} is discarded`, async () => {
+					const { fake, event } = await run({
+						...thin,
+						scene: widenedScene(restated(change)),
+					});
+					expect(fake.scenePlans).toHaveLength(2);
+					expect(
+						fake.requests.filter((r) => r.url.includes("%22Europe%22")),
+					).toEqual([]);
+					expect(event).toMatchObject({ artists: [{ name: "Kavinsky" }] });
+					expect(CandidatesEventSchema.parse(event).artists).toHaveLength(1);
+					expect(widening(event)).toMatchObject({
+						status: "discarded",
+						label: null,
+					});
+				});
+
+			test("a widened round that fails or finds nothing new leaves generation as it was, with no chip", async () => {
+				for (const overrides of [
+					{
+						scene: (_brief: string, widen?: WidenRequest) => {
+							if (widen) throw new Error("planner down");
+							return JSON.stringify(ORIGINAL);
+						},
+					},
+					{
+						musicbrainzSearch: () => musicbrainzArtists(KAVINSKY),
+						lastfm: notFound,
+					},
+				]) {
+					const { fake, lines, event } = await run({ ...thin, ...overrides });
+					expect(fake.scenePlans).toHaveLength(2);
+					expect(event).toMatchObject({
+						status: "ok",
+						artists: [{ name: "Kavinsky" }],
+					});
+					expect(widening(event)?.label).toBeNull();
+					expect(slots(lines).map((s) => s.artist)).toEqual([
+						"Kavinsky",
+						"The Midnight",
+					]);
+				}
+			});
 		});
 
 		describe("MusicBrainz sources", () => {
