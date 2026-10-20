@@ -93,6 +93,52 @@ describe("groundIntent", () => {
 			expect(read(quote, brief)).not.toBeNull();
 	});
 
+	test("classics wording is recognised in its grammatical forms in English, Spanish, French and German", () => {
+		const read = (quote: string) =>
+			groundIntent(ReadIntentSchema.parse({ classics: { quote } }), quote)
+				.classics;
+		for (const quote of [
+			"well-known disco songs",
+			"famous funk tracks",
+			"popular reggaeton",
+			"iconic 90s rave",
+			"the biggest Italo records",
+			"best-known soul songs",
+			"songs everyone knows",
+			"Motown greatest hits",
+			"the most played house tracks",
+			"jazz standards",
+			"the post-punk canon",
+			"Las canciones clásicas de la salsa",
+			"canciones clasicas de cumbia",
+			"exitos de los 80",
+			"los mejores boleros",
+			"las más famosas del flamenco",
+			"los mas famosos del rock en español",
+			"Les plus grands succès du disco",
+			"les succes de la chanson",
+			"Klassiker des Krautrock",
+			"die größten Hits der 80er",
+		])
+			expect(read(quote)).not.toBeNull();
+	});
+
+	test("genre names and look-alike words are not classics wording", () => {
+		const read = (quote: string) =>
+			groundIntent(ReadIntentSchema.parse({ classics: { quote } }), quote)
+				.classics;
+		for (const quote of [
+			"80s disco",
+			"classic rock",
+			"classic house for a late night",
+			"Klassik zum Entspannen",
+			"Sommer Hitze techno",
+			"a standard tuning drone",
+			"famously weird krautrock",
+		])
+			expect(read(quote)).toBeNull();
+	});
+
 	test("a reversed era is put in order", () => {
 		const intent = groundIntent(
 			ReadIntentSchema.parse({ era: { start: 1999, end: 1990 } }),

@@ -57,7 +57,10 @@ robustness checks on the judge.
    playlist matches what I wrote.
    - AC1.1: A brief containing wording such as "best … hits", "classics",
      "greatest", "essential" or "anthems" produces an intent whose classics
-     request carries the supporting quote in the brief's own spelling.
+     request carries the supporting quote in the brief's own spelling. As
+     with the no-vocals cue filter, the classics reading is kept only when
+     its quote contains a supported cue, in English, Spanish, French or
+     German (the list is in the README); unsupported wording drops it.
    - AC1.2: With a classics request, the popularity budget has no mainstream
      ceiling at any creativity.
    - AC1.3: With a classics request under Discover, the novelty budget does
@@ -83,7 +86,9 @@ robustness checks on the judge.
    - AC4.1: A classics request whose quote is not a literal substring of the
      brief is dropped by grounding, as an unsupported album request is.
    - AC4.2: A brief that only names a genre or era ("80s disco") has no
-     classics request.
+     classics request: its quote contains no supported cue in English,
+     Spanish, French or German, and "classic" alone ("classic rock") is not
+     a cue.
 5. As a listener, I want hard rules to keep applying in a classics request,
    so that "classic rock without vocals" still has no vocals.
    - AC5.1: Exclusions, the vocal rule, must-include artists, era and caps

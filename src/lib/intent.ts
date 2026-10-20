@@ -65,27 +65,46 @@ function ground<T extends { quote: string | null }>(
 }
 
 /**
- * Wording that asks for well-known music. A classics quote must contain one,
- * so a quote that only names a genre, era or scene ("80s disco") is not
- * read as a classics request. "Classic" alone is left out: "classic rock"
- * and "classic house" name genres.
+ * Wording that asks for well-known music, in English, Spanish, French and
+ * German. A classics quote must contain one, so a quote that only names a
+ * genre, era or scene ("80s disco") is not read as a classics request.
+ * "Classic" alone is left out: "classic rock" and "classic house" name
+ * genres, as German "Klassik" names classical music.
  */
 const CLASSICS_CUE = new RegExp(
 	`(?<!\\p{L})(?:${[
+		// English
 		"hits?",
 		"classics",
 		"greatest",
+		"biggest",
 		"essentials?",
 		"anthems?",
-		"best of",
+		"best[- ]of",
+		"best[- ]known",
+		"well[- ]known",
+		"famous",
+		"popular",
+		"iconic",
 		"all[- ]time",
 		"timeless",
-		"canonical",
-		"cl[aá]sicos",
-		"[eé]xitos",
+		"everyone knows",
+		"most played",
+		"standards",
+		"canon(?:ical)?",
+		// Spanish
+		"cl[aá]sic[oa]s",
+		"[eé]xitos?",
+		"l[oa]s mejores",
+		"m[aá]s famos[oa]s",
+		// French
 		"classiques",
+		"succ[eè]s",
 		"tubes",
 		"incontournables",
+		// German
+		"klassiker",
+		"gr[oö](?:ß|ss)ten",
 	].join("|")})(?!\\p{L})`,
 	"iu",
 );

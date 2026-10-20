@@ -69,6 +69,18 @@ OpenAI checks each substitute for vocals and fit, and only substitutes that
 pass both replace the original. This is a model-knowledge check, not audio
 verification.
 
+A brief that asks for well-known music is read as a classics request, which
+lifts the mainstream ceiling and, under Discover, the known-track cap; hard
+rules still apply. The reading is kept only when its quote is in the brief and
+contains supported wording: English "hits", "classics", "greatest", "biggest",
+"well-known", "famous", "popular", "iconic", "timeless", "everyone knows",
+"most played", "standards", "canon" and similar; Spanish "clásicos/clásicas",
+"éxitos", "los mejores", "más famosos"; French "classiques", "succès",
+"tubes", "incontournables"; German "Klassiker", "Hits", "größten". "Classic"
+alone is not enough, since "classic rock" names a genre, and a brief that only
+names a genre or era ("80s disco") is not a classics request. The intent chips
+show the reading with an undo.
+
 ## Local development
 
 ```sh
