@@ -6,10 +6,15 @@ faked by the test preload.
 
 ## Curator eval
 
-`bun run eval` runs eight cases through both engines: industrial/EBM at all
+`bun run eval` runs eleven cases through both engines: industrial/EBM at all
 three creativity settings, nocturnal synthwave, rainy-Sunday bossa nova, 90s
-UK garage, a 30-track continuous workout, and instrumental study. Briefs and
-criteria live in `cases.ts`.
+UK garage, a 30-track continuous workout, instrumental study, and three probes
+for known weak spots: French rap (non-English rap), amapiano (a non-Western
+scene) and 70s disco classics (a classics request under Discover). The scene
+probes check that the artists belong to the scene and that the description
+does not call a scene mainstream where it comes from niche, regional or
+"world"; the classics probe checks that the recordings are widely known.
+Briefs and criteria live in `cases.ts`.
 
 ```sh
 EVAL_CASES=continuous-workout,instrumental-study EVAL_ENGINES=chatgpt bun run eval
@@ -59,7 +64,17 @@ resolver hit is not read as grounding. "First try" is the share of final
 songs resolved by the first, fielded search; "first / retry / replacement"
 splits the resolved songs into those, ones found by a later plain-text or
 base-title search, and engine substitutes (replacement or vocal repair).
-Results saved before these were recorded show `n/a`. Overlap is
+Results saved before these were recorded show `n/a`.
+
+Coverage columns show whose music a case serves, from evidence the run
+already gathers: "artist country" counts the case's distinct artists by
+MusicBrainz country, "first release years" spans the MusicBrainz first-release
+years with their median, "long tail" counts recordings not mainstream or of
+unknown popularity, and "Deezer counted" counts recordings only Deezer's rank
+counted. The report and console end with the distinct artists across all
+cases, in total and per engine. These columns are report-only and never fail
+the command; results saved before the evidence or per-source counts existed
+show `n/a`. Overlap is
 computed against the latest earlier run with the same brief, count,
 creativity, engine and model, and is a drift signal, not a quality score.
 

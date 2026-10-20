@@ -11,6 +11,7 @@ import { loadListener } from "./listener";
 import { clientCredentialsToken } from "./live";
 import {
 	type CaseRecord,
+	distinctArtists,
 	type EvalRun,
 	historicalResults,
 	overlap,
@@ -155,6 +156,7 @@ test(
 		}
 		run.complete = true;
 		await save();
+		print(distinctArtists(run.records));
 		print(`Review: ${stem}.md`);
 		expect(
 			run.records.flatMap((record) =>

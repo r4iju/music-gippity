@@ -84,7 +84,7 @@ export interface PopularitySummary {
 	unknown: number;
 }
 
-const median = (values: number[]): number | null => {
+export const median = (values: number[]): number | null => {
 	if (!values.length) return null;
 	const sorted = [...values].sort((a, b) => a - b);
 	const mid = Math.floor(sorted.length / 2);

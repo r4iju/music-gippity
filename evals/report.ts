@@ -4,7 +4,7 @@ import {
 	type CandidatesEvent,
 	type PopularityEvent,
 } from "~/lib/playlist-stream";
-import type { PopularitySummary } from "~/lib/popularity";
+import { median, type PopularitySummary } from "~/lib/popularity";
 import { DEFAULT_PURPOSE, type Purpose } from "~/lib/purpose";
 import type { Judgment } from "./judge";
 import type { RunResult } from "./runner";
@@ -102,6 +102,9 @@ const popularityCells = (p: PopularitySummary) => [
 	`${count(p.median.lastfm)} / ${count(p.median.listenbrainz)} / ${count(p.median.deezer ?? null)}`,
 	`${p.mainstream}/${p.recordings}`,
 	`${p.unknown}/${p.recordings}`,
+	// Older results have no per-source counts.
+	p.counted ? `${p.counted.deezer ?? 0}/${p.recordings}` : "n/a",
+	`${p.recordings - p.mainstream}/${p.recordings}`,
 ];
 
 const budgetCell = (event: BudgetEvent | undefined) => {
@@ -174,6 +177,64 @@ const attemptsCell = (result: RunResult) =>
 			].join(" / ")
 		: "n/a";
 
+/** Final songs' evidence; absent in results saved before evidence existed. */
+const evidenceOf = (result: RunResult) => {
+	const evidence = result.songs.flatMap((song) =>
+		song.evidence ? [{ artist: song.artist, evidence: song.evidence }] : [],
+	);
+	return evidence.length ? evidence : null;
+};
+
+/** Distinct artists by MusicBrainz country, e.g. `FR 3 · BE 1 · unknown 1`. */
+const artistCountryCell = (result: RunResult) => {
+	const evidence = evidenceOf(result);
+	if (!evidence) return "n/a";
+	const countries = new Map<string, string | null>();
+	for (const { artist, evidence: facts } of evidence) {
+		const key = artist.toLowerCase();
+		countries.set(
+			key,
+			countries.get(key) ?? facts.artistCountry?.value ?? null,
+		);
+	}
+	const tally = new Map<string, number>();
+	for (const country of countries.values())
+		tally.set(country ?? "unknown", (tally.get(country ?? "unknown") ?? 0) + 1);
+	return [...tally]
+		.sort(
+			([a, x], [b, y]) =>
+				Number(a === "unknown") - Number(b === "unknown") ||
+				y - x ||
+				a.localeCompare(b),
+		)
+		.map(([country, artists]) => `${country} ${artists}`)
+		.join(" · ");
+};
+
+/** The first-release years MusicBrainz knows, e.g. `1995–2016 (median 2005)`. */
+const releaseYearsCell = (result: RunResult) => {
+	const years = (evidenceOf(result) ?? []).flatMap(({ evidence }) =>
+		evidence.firstReleaseYear ? [evidence.firstReleaseYear.value] : [],
+	);
+	const middle = median(years);
+	if (middle === null) return "n/a";
+	return `${Math.min(...years)}–${Math.max(...years)} (median ${Math.round(middle)})`;
+};
+
+/** Distinct artists across every case, in total and per engine. */
+export function distinctArtists(records: CaseRecord[]): string {
+	const artists = (engine?: string) =>
+		new Set(
+			records.flatMap((record) =>
+				!record.result || (engine && record.engine !== engine)
+					? []
+					: record.result.songs.map((song) => song.artist.toLowerCase()),
+			),
+		).size;
+	const engines = [...new Set(records.map((record) => record.engine))];
+	return `Distinct artists across all cases: ${artists()}${engines.length > 1 ? ` (${engines.map((engine) => `${engine} ${artists(engine)}`).join(", ")})` : ""}.`;
+}
+
 export function summaryRow(record: CaseRecord): string {
 	const result = record.result;
 	const assessment =
@@ -187,11 +248,11 @@ export function summaryRow(record: CaseRecord): string {
 				)
 				.join(" / ")
 		: "n/a";
-	return `| ${[record.caseId, record.engine, result?.generation.purpose ?? "n/a", seconds(result?.firstSongMs), seconds(result?.totalMs), result ? `${result.tracks}/${result.case.trackCount}` : "n/a", result?.uniqueArtists ?? "n/a", result ? `${result.onSpotify}/${result.tracks}` : "n/a", result ? `${result.resolution.exact + result.resolution.normalized}/${result.tracks}` : "n/a", result ? `${result.resolution.fuzzy}/${result.tracks}` : "n/a", result ? [result.resolution.exact, result.resolution.normalized, result.resolution.fuzzy, result.resolution.unresolved].join(" / ") : "n/a", result ? firstTryCell(result) : "n/a", result ? attemptsCell(result) : "n/a", result?.drift ?? "n/a", result?.replaced ?? "n/a", result?.poolFills ?? "n/a", result ? (result.novelty?.status === "ok" ? `${result.known} / ${result.knownArtist}` : result.novelty ? "error" : "n/a") : "n/a", budgetCell(result?.budget), ...(result?.popularity ? popularityCells(result.popularity) : ["n/a", "n/a", "n/a"]), popularityBudgetCell(result?.popularityBudget), result ? (result.candidates ? (result.candidates.status === "ok" ? candidatesCell(result.candidates, result.candidateUse) : "error") : "skipped") : "n/a", result ? fromCandidatesCell(result) : "n/a", result ? candidateSourcesCell(result) : "n/a", result ? result.repairs.filter((r) => r.outcome === "replaced").length : "n/a", result ? (result.rerank ? (result.rerank.status === "ok" ? `${(result.rerank.pruned?.length ?? 0) - (result.rerank.restored?.length ?? 0)}/${result.rerank.pruned?.length ?? 0}` : "error") : "skipped") : "n/a", counts, seconds(record.judgment?.totalMs), record.failures.length ? "ERROR" : record.judgment ? "complete" : "pending", record.overlap].map(cell).join(" | ")} |`;
+	return `| ${[record.caseId, record.engine, result?.generation.purpose ?? "n/a", seconds(result?.firstSongMs), seconds(result?.totalMs), result ? `${result.tracks}/${result.case.trackCount}` : "n/a", result?.uniqueArtists ?? "n/a", result ? `${result.onSpotify}/${result.tracks}` : "n/a", result ? `${result.resolution.exact + result.resolution.normalized}/${result.tracks}` : "n/a", result ? `${result.resolution.fuzzy}/${result.tracks}` : "n/a", result ? [result.resolution.exact, result.resolution.normalized, result.resolution.fuzzy, result.resolution.unresolved].join(" / ") : "n/a", result ? firstTryCell(result) : "n/a", result ? attemptsCell(result) : "n/a", result?.drift ?? "n/a", result?.replaced ?? "n/a", result?.poolFills ?? "n/a", result ? (result.novelty?.status === "ok" ? `${result.known} / ${result.knownArtist}` : result.novelty ? "error" : "n/a") : "n/a", budgetCell(result?.budget), ...(result?.popularity ? popularityCells(result.popularity) : ["n/a", "n/a", "n/a", "n/a", "n/a"]), popularityBudgetCell(result?.popularityBudget), result ? artistCountryCell(result) : "n/a", result ? releaseYearsCell(result) : "n/a", result ? (result.candidates ? (result.candidates.status === "ok" ? candidatesCell(result.candidates, result.candidateUse) : "error") : "skipped") : "n/a", result ? fromCandidatesCell(result) : "n/a", result ? candidateSourcesCell(result) : "n/a", result ? result.repairs.filter((r) => r.outcome === "replaced").length : "n/a", result ? (result.rerank ? (result.rerank.status === "ok" ? `${(result.rerank.pruned?.length ?? 0) - (result.rerank.restored?.length ?? 0)}/${result.rerank.pruned?.length ?? 0}` : "error") : "skipped") : "n/a", counts, seconds(record.judgment?.totalMs), record.failures.length ? "ERROR" : record.judgment ? "complete" : "pending", record.overlap].map(cell).join(" | ")} |`;
 }
 
 export const TABLE_HEADER =
-	"| case | engine | purpose | first song | generation | tracks | artists | on Spotify | exact or normalized | fuzzy | exact / normalized / fuzzy / unresolved | first try | first / retry / replacement | drift | replaced | pool | known / artist | budget | median listeners (Last.fm / LB / Deezer) | mainstream | unknown listeners | popularity budget | candidates | from candidates | candidate sources (pool → used) | repaired | filled / pruned | fit / mismatch / uncertain (advisory) | judge | eval | same as last run |\n|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|";
+	"| case | engine | purpose | first song | generation | tracks | artists | on Spotify | exact or normalized | fuzzy | exact / normalized / fuzzy / unresolved | first try | first / retry / replacement | drift | replaced | pool | known / artist | budget | median listeners (Last.fm / LB / Deezer) | mainstream | unknown listeners | Deezer counted | long tail | popularity budget | artist country | first release years | candidates | from candidates | candidate sources (pool → used) | repaired | filled / pruned | fit / mismatch / uncertain (advisory) | judge | eval | same as last run |\n|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|";
 
 export function renderReport(run: EvalRun): string {
 	const lines = [
@@ -203,6 +264,8 @@ export function renderReport(run: EvalRun): string {
 		"",
 		TABLE_HEADER,
 		...run.records.map(summaryRow),
+		"",
+		`${distinctArtists(run.records)} Coverage columns describe whose music the run serves and never fail it: artist country counts distinct artists by MusicBrainz country, first release years spans the years MusicBrainz knows, long tail counts recordings not mainstream or of unknown popularity, and Deezer counted counts recordings only Deezer's rank counted.`,
 		"",
 	];
 	for (const record of run.records) {
