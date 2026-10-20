@@ -202,6 +202,8 @@ robustness checks on the judge.
       and language where MusicBrainz knows them, the first-release-year
       spread, the long-tail share (not mainstream or unknown), and the count
       of unknown and Deezer-counted recordings.
+      "And language" is deferred: the existing MusicBrainz ISRC JSON lookup
+      returns no release language, so a follow-up must add one.
     - AC18.2: The report shows the number of distinct artists across all
       cases in the run.
     - AC18.3: These columns are report-only and never fail the command.
@@ -218,7 +220,9 @@ robustness checks on the judge.
     - AC20.1: An opt-in mode re-judges a saved run with the track order
       shuffled and with the description paraphrased and padded, and reports
       verdicts that changed.
-    - AC20.2: The mode reads saved results and calls only the judge.
+    - AC20.2: The mode reads saved results and calls only the judge. The
+      paraphrase is one temperature-0 request to the judge's own engine,
+      kept only if it loses no artist name, title, number or quoted span.
 21. As a maintainer, I want to know whether candidates influence the
     curator, so that the candidate round earns its latency.
     - AC21.1: An opt-in mode replaces the candidate pool with candidates
@@ -354,6 +358,13 @@ robustness checks on the judge.
   curator. Both contradict the README's policy boundary and the current code,
   which offers MusicBrainz and Last.fm artists and never sends Spotify data
   to an engine. Correct the glossary while adding Classics request.
+- Migration 0007 drops `song.preview_url`, which the build deployed before
+  it still selects and inserts, and production has no migration ledger.
+  Deploy the code first, let durable generations on the old build drain,
+  then apply only 0007 by hand and verify the column is gone. Rollback
+  then means redeploying the new build, or re-adding the nullable column
+  before running an older one. See the rollout note in
+  docs/durable-playlist-generation.md.
 - Release follows the personal-project policy: local verification and eval
   comparisons first; CI is currently manual-dispatch and Vercel git
   deployments are disabled in the working tree.
