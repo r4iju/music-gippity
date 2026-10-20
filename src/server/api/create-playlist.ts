@@ -43,7 +43,7 @@ import {
 import { repairFromEvidence } from "~/server/api/repair";
 import { suggestReplacement } from "~/server/api/replacement";
 import { otherEngine, rerankPlaylist } from "~/server/api/rerank";
-import { findSpotifyTrack } from "~/server/api/spotify";
+import { findSpotifyTrack, TOKEN_MARKET } from "~/server/api/spotify";
 import { processEngineStream } from "~/server/api/stream-helpers";
 import { repairVocalTracks } from "~/server/api/vocal-repair";
 import { auth } from "~/server/auth";
@@ -78,6 +78,7 @@ export async function enrichSongWithSpotify(
 	song: StreamedSong,
 	spotifyToken: string,
 	intent: Intent | null,
+	market = TOKEN_MARKET,
 ): Promise<Enrichment> {
 	try {
 		const enriched = await findSpotifyTrack({
@@ -89,6 +90,7 @@ export async function enrichSongWithSpotify(
 			},
 			token: spotifyToken,
 			intent,
+			market,
 		});
 		const merged = { ...song, ...enriched };
 		return { status: merged.songId ? "found" : "missing", song: merged };
@@ -327,6 +329,7 @@ export async function generatePlaylistStream(
 					replacement,
 					spotifyToken,
 					intent,
+					account.market,
 				);
 				const song = intoSlot(enriched.song, slot);
 				if (enriched.status === "found" && caps.conflicts(song)) {
@@ -353,6 +356,7 @@ export async function generatePlaylistStream(
 					song,
 					spotifyToken,
 					intent,
+					account.market,
 				);
 				if (enriched.status === "failed") {
 					// The row keeps the pick's artist, so hold that name for it.
@@ -423,6 +427,7 @@ export async function generatePlaylistStream(
 								{ ...line, id: uuidv4() },
 								spotifyToken,
 								intent,
+								account.market,
 							).then((entry) => {
 								if (
 									!signal.aborted &&
@@ -504,6 +509,7 @@ export async function generatePlaylistStream(
 				),
 				caps,
 				token: spotifyToken,
+				market: account.market,
 				emit,
 			});
 			// A substitute is the reviewer's own suggestion, never a candidate.

@@ -29,7 +29,6 @@ async function enrichSongWithSpotify(
 		return {
 			...base,
 			songId: null,
-			previewUrl: null,
 			albumImage: null,
 			albumTitle: null,
 			albumYear: null,

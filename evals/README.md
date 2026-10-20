@@ -52,7 +52,14 @@ or incomplete judge responses fail the command after saving; musical
 mismatches do not. An interrupted run is marked `complete: false`.
 
 The console reports count, artist uniqueness, on-Spotify rate, replacement
-count, generation latency, judge latency and "same as last run". Overlap is
+count, generation latency, judge latency and "same as last run". Beside the
+on-Spotify rate, "exact or normalized" counts recordings whose title matches
+the pick and "fuzzy" counts other recordings credited to the artist, so a
+resolver hit is not read as grounding. "First try" is the share of final
+songs resolved by the first, fielded search; "first / retry / replacement"
+splits the resolved songs into those, ones found by a later plain-text or
+base-title search, and engine substitutes (replacement or vocal repair).
+Results saved before these were recorded show `n/a`. Overlap is
 computed against the latest earlier run with the same brief, count,
 creativity, engine and model, and is a drift signal, not a quality score.
 
@@ -117,6 +124,9 @@ not anyone's account. To evaluate against a real account run
 one when several are stored) and keep the result out of commits: it is
 listening history. Known and budget columns only compare between runs on the
 same snapshot.
+
+Nor does that token carry a market, so the eval's searches are restricted to
+`EVAL_SPOTIFY_MARKET` (default `US`) where the app uses the listener's own.
 
 ## No-vocals repair
 
