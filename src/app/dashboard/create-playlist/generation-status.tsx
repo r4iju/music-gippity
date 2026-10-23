@@ -1,7 +1,9 @@
+import type { ReactNode } from "react";
 import { Button } from "~/components/ui/button";
 import { activeRun, type Phase } from "~/lib/generation-run";
 import type { GenerationSnapshot } from "~/lib/generation-snapshot";
 import type { Generation } from "~/lib/playlist-generation";
+import { cn } from "~/lib/utils";
 
 const PHASE_LABELS: Record<Phase, string> = {
 	queued: "Waiting to start",
@@ -24,6 +26,7 @@ export function GenerationStatus({
 	onCancel,
 	onKeep,
 	onRetry,
+	notice,
 }: (
 	| {
 			preparation: "creating" | "loading";
@@ -41,6 +44,8 @@ export function GenerationStatus({
 	onCancel: () => void;
 	onKeep: () => void;
 	onRetry: () => void;
+	/** Replaces the reassurance line, e.g. with the connection state. */
+	notice?: ReactNode;
 }) {
 	if (
 		!preparation &&
@@ -65,105 +70,127 @@ export function GenerationStatus({
 		run?.state.status === "failed"
 			? run.state.failure.message
 			: run?.state.status === "cancelled"
-				? "Generation was cancelled. Saved recordings are still available."
+				? count > 0
+					? "Saved recordings are still available."
+					: "Stopped before any tracks arrived."
 				: generation?.status === "interrupted"
 					? generation.message
 					: "";
-	return (
-		<section
-			aria-label="Generation status"
-			className="text-foreground space-y-3 rounded-xl bg-primary/8 p-4"
-		>
-			<div role="status" aria-live="polite">
-				<p className="flex items-center gap-2 font-medium">
-					{running && (
-						<span
-							aria-hidden="true"
-							className="size-2 shrink-0 rounded-full bg-primary motion-safe:animate-pulse"
-						/>
-					)}
-					{preparation
-						? preparation === "creating"
-							? "Creating your playlist"
-							: "Opening your playlist"
-						: running
-							? run
-								? PHASE_LABELS[run.state.phase]
-								: "Building your playlist"
-							: run?.state.status === "failed"
-								? "Generation failed"
-								: run?.state.status === "cancelled"
-									? "Generation cancelled"
-									: "Playlist needs your attention"}
-				</p>
-				<p className="text-muted-foreground text-sm">
-					{count} of {target} tracks ready.{" "}
-					{preparation
-						? "Getting everything ready for you."
-						: running
-							? "Saved as we go. You can leave and come back."
-							: message}
-				</p>
-				{!running && run && (
-					<p className="text-muted-foreground text-sm">
-						Last phase: {PHASE_LABELS[run.state.phase]}.
-					</p>
-				)}
-				{kept && (
-					<p className="text-muted-foreground text-sm">
-						Using your kept tracks. You can save or export them; the generation
-						outcome is unchanged.
-					</p>
-				)}
-			</div>
-			{running && (
+	const progress = `${count} of ${target} tracks ready`;
+	if (running)
+		return (
+			<section aria-label="Generation status" className="flex flex-col gap-2">
+				<div className="flex items-center gap-3">
+					<div
+						role="status"
+						aria-live="polite"
+						className="flex min-w-0 flex-1 items-baseline gap-x-3"
+					>
+						<p className="text-foreground flex min-w-0 items-center gap-2 text-sm font-medium">
+							<span
+								aria-hidden="true"
+								className="bg-primary size-1.5 shrink-0 rounded-full motion-safe:animate-pulse"
+							/>
+							<span className="truncate">
+								{preparation
+									? preparation === "creating"
+										? "Creating your playlist"
+										: "Opening your playlist"
+									: run
+										? PHASE_LABELS[run.state.phase]
+										: "Building your playlist"}
+							</span>
+						</p>
+						<p className="text-muted-foreground shrink-0 text-xs tabular-nums">
+							{progress}
+						</p>
+					</div>
+					<Button
+						size="sm"
+						variant="ghost"
+						className="text-muted-foreground hover:text-foreground h-8 shrink-0 px-2.5 text-xs"
+						aria-label="Stop generation"
+						onClick={onCancel}
+						disabled={Boolean(preparation)}
+					>
+						Stop
+					</Button>
+				</div>
 				<div
 					role="progressbar"
 					aria-label="Tracks ready"
 					aria-valuemin={0}
 					aria-valuemax={target}
 					aria-valuenow={Math.min(count, target)}
-					className="h-1 overflow-hidden rounded-full bg-primary/10"
+					className="bg-foreground/10 h-1 overflow-hidden rounded-full"
 				>
 					<div
-						className="h-full rounded-full bg-primary transition-[width] motion-reduce:transition-none"
+						className="bg-primary h-full rounded-full transition-[width] duration-500 motion-reduce:transition-none"
 						style={{
 							width: `${target > 0 ? Math.min(100, (count / target) * 100) : 0}%`,
 						}}
 					/>
 				</div>
-			)}
-			{running ? (
-				<Button
-					size="sm"
-					variant="ghost"
-					className="min-h-11 w-full text-muted-foreground"
-					onClick={onCancel}
-					disabled={Boolean(preparation)}
-				>
-					Stop generation
-				</Button>
-			) : (
-				<>
-					<p className="text-muted-foreground text-sm">
-						Generate again starts a new generation; it does not resume this one.
+				{notice ?? (
+					<p className="text-muted-foreground text-xs">
+						{preparation
+							? "Getting everything ready for you."
+							: "Saved as we go. You can leave and come back."}
 					</p>
-					<div className="grid grid-cols-1 gap-2">
-						{count > 0 && !kept && (
-							<Button size="sm" className="min-h-11 w-full" onClick={onKeep}>
-								Keep these tracks
-							</Button>
-						)}
-						<Button
-							size="sm"
-							variant="outline"
-							className="min-h-11 w-full"
-							onClick={onRetry}
-						>
-							Generate again
-						</Button>
-					</div>
-				</>
+				)}
+			</section>
+		);
+	return (
+		<section
+			aria-label="Generation status"
+			className={cn(
+				"flex flex-col gap-3 border-l-2 py-1 pl-4",
+				run?.state.status === "cancelled"
+					? "border-border"
+					: "border-destructive/60",
+			)}
+		>
+			<div role="status" aria-live="polite" className="flex flex-col gap-1">
+				<p className="flex flex-wrap items-baseline gap-x-3">
+					<span className="text-foreground text-sm font-medium">
+						{run?.state.status === "failed"
+							? "Generation failed"
+							: run?.state.status === "cancelled"
+								? "Generation cancelled"
+								: "Playlist needs your attention"}
+					</span>
+					<span className="text-muted-foreground text-xs tabular-nums">
+						{progress}
+					</span>
+				</p>
+				{message && <p className="text-muted-foreground text-sm">{message}</p>}
+				{run?.state.status === "failed" && (
+					<p className="text-muted-foreground text-xs">
+						Failed while {PHASE_LABELS[run.state.phase].toLowerCase()}.
+					</p>
+				)}
+				{kept && (
+					<p className="text-muted-foreground text-xs">
+						Using your kept tracks. You can save or export them; the generation
+						outcome is unchanged.
+					</p>
+				)}
+			</div>
+			{notice}
+			<div className="flex flex-wrap items-center gap-2">
+				{count > 0 && !kept && (
+					<Button size="sm" onClick={onKeep}>
+						Keep these tracks
+					</Button>
+				)}
+				<Button size="sm" variant="outline" onClick={onRetry}>
+					Generate again
+				</Button>
+			</div>
+			{count > 0 && (
+				<p className="text-muted-foreground text-xs">
+					Generate again starts a new generation; it does not resume this one.
+				</p>
 			)}
 		</section>
 	);

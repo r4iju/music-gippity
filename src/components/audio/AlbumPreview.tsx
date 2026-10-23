@@ -1,4 +1,4 @@
-import { CrossIcon } from "lucide-react";
+import { Disc3 } from "lucide-react";
 import Image from "next/image";
 import {
 	OpenInSpotify,
@@ -41,17 +41,22 @@ const AlbumPreview = ({
 	) : (
 		<div
 			className={cn(
-				"relative flex items-center justify-center bg-gray-800",
+				"bg-muted relative flex items-center justify-center",
 				radius,
 			)}
 			style={{ width: px, height: px }}
 		>
-			{!loading && <CrossIcon className="size-1/2" />}
+			{!loading && (
+				<Disc3 className="text-muted-foreground size-1/2" aria-hidden="true" />
+			)}
 		</div>
 	);
 
 	return (
-		<div className="group relative flex size-16 justify-center">
+		<div
+			className="group relative flex shrink-0 justify-center"
+			style={{ width: px, height: px }}
+		>
 			<Tooltip>
 				<TooltipTrigger asChild>
 					{spotifyLink ? (

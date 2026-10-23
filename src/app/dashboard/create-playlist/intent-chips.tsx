@@ -51,8 +51,9 @@ export function IntentChips({
 						(chip.quote ? `From your brief: “${chip.quote}”` : undefined)
 					}
 					className={cn(
-						"border-muted bg-muted/40 text-muted-foreground rounded-full border px-2 py-0.5 text-xs",
-						chip.tone === "note" && "border-dashed bg-transparent italic",
+						"bg-foreground/[0.06] text-muted-foreground rounded-full border border-transparent px-2.5 py-0.5 text-xs",
+						chip.tone === "note" &&
+							"border-border border-dashed bg-transparent italic",
 					)}
 				>
 					{chip.label}

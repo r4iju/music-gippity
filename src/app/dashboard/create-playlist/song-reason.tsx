@@ -1,4 +1,4 @@
-import { AiCuratorLabel } from "~/components/ai-curator-label";
+import { Sparkles } from "lucide-react";
 
 /** The curator's one line on why the recording belongs, once it arrives. */
 export function SongReason({ reason }: { reason: string | undefined }) {
@@ -7,13 +7,14 @@ export function SongReason({ reason }: { reason: string | undefined }) {
 		<span
 			role="note"
 			aria-label={`AI curator's note: ${reason}`}
-			className="flex min-w-0 items-center gap-1.5"
+			className="text-muted-foreground/80 flex min-w-0 items-center gap-1.5 text-xs leading-5"
 		>
-			<AiCuratorLabel />
-			<span
-				title={reason}
-				className="text-muted-foreground/80 truncate text-xs italic"
-			>
+			<Sparkles
+				aria-hidden="true"
+				className="text-complementaryLight size-3 shrink-0"
+			/>
+			<span className="sr-only">AI curator: </span>
+			<span title={reason} className="truncate italic">
 				{reason}
 			</span>
 		</span>
