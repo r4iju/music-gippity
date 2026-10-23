@@ -71,7 +71,9 @@ export const SongSchema = z.object({
 	origin: z.enum(SONG_ORIGINS).optional(),
 	source: z.enum(SONG_SOURCES).optional(),
 	// The offered candidate the song matches, by one of its credited artists.
-	candidate: z.enum(CANDIDATE_SOURCES).optional(),
+	// A source an earlier build stored ("search") reads as unknown rather than
+	// failing the whole saved playlist.
+	candidate: z.enum(CANDIDATE_SOURCES).optional().catch(undefined),
 	// Whether the listener already knows it; absent when the known set was not read.
 	familiarity: z.enum(FAMILIARITIES).optional(),
 });

@@ -160,3 +160,16 @@ test("corrupt storage reports recovery failure without throwing away valid runti
 	);
 	expect(warnings).toHaveLength(1);
 });
+
+test("a candidate source from an earlier build does not fail the saved playlist", () => {
+	const { kind: _, ...stored } = song;
+	const draft = restoreDraft(
+		JSON.stringify({
+			...emptyDraft(),
+			songs: [{ ...stored, candidate: "search" }],
+			generation: { status: "complete" },
+		}),
+	);
+	expect(draft.songs).toHaveLength(1);
+	expect(draft.songs[0]?.candidate).toBeUndefined();
+});
