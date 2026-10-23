@@ -3,6 +3,7 @@ import { Button } from "~/components/ui/button";
 import { activeRun, type Phase } from "~/lib/generation-run";
 import type { GenerationSnapshot } from "~/lib/generation-snapshot";
 import type { Generation } from "~/lib/playlist-generation";
+import { cn } from "~/lib/utils";
 
 const PHASE_LABELS: Record<Phase, string> = {
 	queued: "Waiting to start",
@@ -69,7 +70,9 @@ export function GenerationStatus({
 		run?.state.status === "failed"
 			? run.state.failure.message
 			: run?.state.status === "cancelled"
-				? "Generation was cancelled. Saved recordings are still available."
+				? count > 0
+					? "Saved recordings are still available."
+					: "Stopped before any tracks arrived."
 				: generation?.status === "interrupted"
 					? generation.message
 					: "";
@@ -140,7 +143,12 @@ export function GenerationStatus({
 	return (
 		<section
 			aria-label="Generation status"
-			className="border-destructive/60 flex flex-col gap-3 border-l-2 py-1 pl-4"
+			className={cn(
+				"flex flex-col gap-3 border-l-2 py-1 pl-4",
+				run?.state.status === "cancelled"
+					? "border-border"
+					: "border-destructive/60",
+			)}
 		>
 			<div role="status" aria-live="polite" className="flex flex-col gap-1">
 				<p className="flex flex-wrap items-baseline gap-x-3">
@@ -156,9 +164,9 @@ export function GenerationStatus({
 					</span>
 				</p>
 				{message && <p className="text-muted-foreground text-sm">{message}</p>}
-				{run && (
+				{run?.state.status === "failed" && (
 					<p className="text-muted-foreground text-xs">
-						Last phase: {PHASE_LABELS[run.state.phase]}.
+						Failed while {PHASE_LABELS[run.state.phase].toLowerCase()}.
 					</p>
 				)}
 				{kept && (
@@ -179,9 +187,11 @@ export function GenerationStatus({
 					Generate again
 				</Button>
 			</div>
-			<p className="text-muted-foreground text-xs">
-				Generate again starts a new generation; it does not resume this one.
-			</p>
+			{count > 0 && (
+				<p className="text-muted-foreground text-xs">
+					Generate again starts a new generation; it does not resume this one.
+				</p>
+			)}
 		</section>
 	);
 }

@@ -494,13 +494,13 @@ export default function PlaylistTable() {
 			)}
 
 			<footer className="border-border/60 flex flex-wrap items-center justify-between gap-3 border-t pt-4">
-				<SpotifyAttribution />
+				{rowCount > 0 && <SpotifyAttribution />}
 				<AlertDialog>
 					<AlertDialogTrigger asChild>
 						<Button
 							size="sm"
 							variant="ghost"
-							className="text-muted-foreground hover:text-foreground -mr-3"
+							className="text-muted-foreground hover:text-foreground -mr-3 ml-auto"
 						>
 							<ArrowLeft className="size-4" />
 							Start over
