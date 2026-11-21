@@ -1,11 +1,7 @@
 {
-  "route": "vercel-prebuilt",
-  "appDir": ".",
-  "packageManager": "bun",
-  "productionUrls": [
-    "https://music-gippity.vercel.app"
-  ],
-  "healthPaths": [
-    "/"
-  ]
+	"route": "vercel-prebuilt",
+	"appDir": ".",
+	"packageManager": "bun",
+	"productionUrls": ["https://music-gippity.vercel.app"],
+	"healthPaths": ["/"]
 }
