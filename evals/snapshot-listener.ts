@@ -7,13 +7,14 @@
 //   bun run eval:snapshot-listener
 // With several Spotify accounts, EVAL_LISTENER names the Spotify account id.
 import { writeFile } from "node:fs/promises";
-import { env } from "~/env.mjs";
+import { getEnv } from "~/env.mjs";
 import { spotifyListener } from "~/server/api/listener";
-import { drizzle, op, schema } from "~/server/drizzle";
+import { getDrizzle, op, schema } from "~/server/drizzle";
 import { type ListenerSnapshot, SNAPSHOT_PATH } from "./listener";
 
 const wanted = process.env.EVAL_LISTENER;
 const spotify = op.eq(schema.accounts.provider, "spotify");
+const drizzle = getDrizzle();
 const accounts = await drizzle
 	.select({
 		id: schema.accounts.providerAccountId,
@@ -45,7 +46,7 @@ const exchange = await fetch("https://accounts.spotify.com/api/token", {
 	method: "POST",
 	headers: {
 		"Content-Type": "application/x-www-form-urlencoded",
-		Authorization: `Basic ${btoa(`${env.SPOTIFY_CLIENT_ID}:${env.SPOTIFY_CLIENT_SECRET}`)}`,
+		Authorization: `Basic ${btoa(`${getEnv().SPOTIFY_CLIENT_ID}:${getEnv().SPOTIFY_CLIENT_SECRET}`)}`,
 	},
 	body: new URLSearchParams({
 		grant_type: "refresh_token",

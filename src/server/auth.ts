@@ -1,12 +1,12 @@
 import type { AdapterUser } from "@auth/core/adapters";
 import type { JWT, JWTOptions } from "@auth/core/jwt";
 import { DrizzleAdapter } from "@auth/drizzle-adapter";
-import NextAuth, { type DefaultSession } from "next-auth";
+import NextAuth, { type DefaultSession, type NextAuthConfig } from "next-auth";
 import type { ProviderId } from "next-auth/providers";
 import SpotifyProvider from "next-auth/providers/spotify";
-import { env } from "~/env.mjs";
+import { getEnv } from "~/env.mjs";
 import { SPOTIFY_SCOPES } from "~/lib/spotify-scopes";
-import { drizzle, op, schema } from "~/server/drizzle";
+import { getDrizzle, op, schema } from "~/server/drizzle";
 import { getSpotifyToken } from "~/server/spotify-token";
 import { logger } from "~/utils";
 
@@ -22,11 +22,8 @@ declare module "next-auth" {
 	}
 }
 
-export const {
-	handlers: { GET, POST },
-	auth,
-} = NextAuth({
-	...(env.NODE_ENV === "production" && {
+const createAuthConfig = (): NextAuthConfig => ({
+	...(getEnv().NODE_ENV === "production" && {
 		trustHost: true,
 	}),
 	callbacks: {
@@ -35,7 +32,7 @@ export const {
 			// logger.info('JWT callback invoked', { account, token });
 
 			if (account?.access_token && token.sub) {
-				await drizzle
+				await getDrizzle()
 					.update(schema.accounts)
 					.set({
 						access_token: account.access_token,
@@ -103,15 +100,15 @@ export const {
 			return `${baseUrl}/dashboard/create-playlist`;
 		},
 	},
-	adapter: DrizzleAdapter(drizzle),
+	adapter: DrizzleAdapter(getDrizzle()),
 	session: { strategy: "jwt" },
 	jwt: {
-		secret: env.NEXTAUTH_SECRET,
+		secret: getEnv().NEXTAUTH_SECRET,
 	} as Partial<JWTOptions>,
 	providers: [
 		SpotifyProvider({
-			clientId: env.SPOTIFY_CLIENT_ID,
-			clientSecret: env.SPOTIFY_CLIENT_SECRET,
+			clientId: getEnv().SPOTIFY_CLIENT_ID,
+			clientSecret: getEnv().SPOTIFY_CLIENT_SECRET,
 			authorization: `https://accounts.spotify.com/authorize?scope=${SPOTIFY_SCOPES.join(" ")}`,
 			token: "https://accounts.spotify.com/api/token",
 			userinfo: "https://api.spotify.com/v1/me",
@@ -119,6 +116,11 @@ export const {
 	],
 	debug: true,
 });
+
+export const {
+	handlers: { GET, POST },
+	auth,
+} = NextAuth(createAuthConfig);
 
 async function refreshAccessToken(token: JWT): Promise<JWT> {
 	if (!token.sub) throw new Error("Missing account identity");

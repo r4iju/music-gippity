@@ -1,4 +1,4 @@
-import { env } from "~/env.mjs";
+import { getEnv } from "~/env.mjs";
 import type { ArtistCandidate } from "~/lib/playlist-stream";
 import { RateLimiter } from "./evidence/rate-limit";
 
@@ -9,7 +9,12 @@ export const USER_AGENT =
 // they arrive at the pace of the limiter, one per interval. The limiter is
 // per isolate and shared by candidates and evidence; MusicBrainz answers
 // 503 when several isolates together exceed its limit.
-export const musicbrainz = new RateLimiter(Number(env.MUSICBRAINZ_INTERVAL_MS));
+let limiter: RateLimiter | undefined;
+
+export function getMusicBrainzLimiter() {
+	limiter ??= new RateLimiter(Number(getEnv().MUSICBRAINZ_INTERVAL_MS));
+	return limiter;
+}
 
 const SEARCH_DEADLINE_MS = 5000;
 // Who is tagged with a scene or signed to a label changes slowly.
@@ -37,7 +42,7 @@ async function searchMusicBrainz<T>(
 		SEARCH_DEADLINE_MS,
 	);
 	try {
-		return await musicbrainz.run(async () => {
+		return await getMusicBrainzLimiter().run(async () => {
 			const res = await fetch(
 				`https://musicbrainz.org/ws/2/${entity}?query=${encodeURIComponent(query)}&limit=${SEARCH_LIMIT}&fmt=json`,
 				{

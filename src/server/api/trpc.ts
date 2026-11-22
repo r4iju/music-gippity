@@ -1,11 +1,11 @@
 import { auth } from "~/server/auth";
-import { drizzle, op, schema } from "~/server/drizzle";
+import { getDrizzle, op, schema } from "~/server/drizzle";
 
 export const createTRPCContext = async () => {
 	const session = await auth();
 	return {
 		session,
-		drizzle,
+		drizzle: getDrizzle(),
 		schema,
 		op,
 	};

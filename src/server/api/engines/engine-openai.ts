@@ -1,10 +1,10 @@
 // src/server/api/engines/engine-openai.ts
 
 import { z } from "zod";
-import { env } from "~/env.mjs";
+import { getEnv } from "~/env.mjs";
 import { ENGINES } from "~/lib/engines";
 import { auth } from "~/server/auth";
-import { drizzle, schema } from "~/server/drizzle";
+import { getDrizzle, schema } from "~/server/drizzle";
 import { logger } from "~/utils";
 
 const UsageSchema = z.object({
@@ -54,8 +54,8 @@ export async function chatgptEngine({
 		method: "POST",
 		headers: {
 			"Content-Type": "application/json",
-			Authorization: `Bearer ${env.OPENAI_KEY}`,
-			"Openai-Organization": env.OPENAI_ORGANIZATION_ID,
+			Authorization: `Bearer ${getEnv().OPENAI_KEY}`,
+			"Openai-Organization": getEnv().OPENAI_ORGANIZATION_ID,
 		},
 		body: JSON.stringify({
 			model: engine.model,
@@ -176,7 +176,7 @@ async function logTokenUsage(
 		logger.error("No session found");
 		return;
 	}
-	await drizzle.insert(schema.llmTokenUsage).values({
+	await getDrizzle().insert(schema.llmTokenUsage).values({
 		userId,
 		engine: "chatgpt",
 		inputTokens,

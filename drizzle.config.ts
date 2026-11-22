@@ -1,6 +1,6 @@
 import type { Config } from "drizzle-kit";
 
-import { env } from "~/env.mjs";
+import { getEnv } from "~/env.mjs";
 
 const CONFIG = {
 	development: {
@@ -8,8 +8,8 @@ const CONFIG = {
 		out: "./migrations",
 		dialect: "turso",
 		dbCredentials: {
-			url: env.TURSO_DATABASE_URL,
-			authToken: env.TURSO_AUTH_TOKEN,
+			url: getEnv().TURSO_DATABASE_URL,
+			authToken: getEnv().TURSO_AUTH_TOKEN,
 		},
 	} satisfies Config,
 	production: {
@@ -17,8 +17,8 @@ const CONFIG = {
 		out: "./migrations",
 		dialect: "turso",
 		dbCredentials: {
-			url: env.TURSO_DATABASE_URL,
-			authToken: env.TURSO_AUTH_TOKEN,
+			url: getEnv().TURSO_DATABASE_URL,
+			authToken: getEnv().TURSO_AUTH_TOKEN,
 		},
 	} satisfies Config,
 };

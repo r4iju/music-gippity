@@ -1,5 +1,5 @@
-import { env } from "~/env.mjs";
-import { drizzle } from "~/server/drizzle";
+import { getEnv } from "~/env.mjs";
+import { getDrizzle } from "~/server/drizzle";
 import {
 	SpotifyTokenSchema,
 	spotifyTokenFor,
@@ -7,7 +7,7 @@ import {
 
 export const getSpotifyToken = (userId: string, minimumValidityMs = 60_000) =>
 	spotifyTokenFor(
-		drizzle,
+		getDrizzle(),
 		userId,
 		async (refreshToken) => {
 			const response = await fetch("https://accounts.spotify.com/api/token", {
@@ -15,8 +15,8 @@ export const getSpotifyToken = (userId: string, minimumValidityMs = 60_000) =>
 				signal: AbortSignal.timeout(10_000),
 				headers: { "Content-Type": "application/x-www-form-urlencoded" },
 				body: new URLSearchParams({
-					client_id: env.SPOTIFY_CLIENT_ID,
-					client_secret: env.SPOTIFY_CLIENT_SECRET,
+					client_id: getEnv().SPOTIFY_CLIENT_ID,
+					client_secret: getEnv().SPOTIFY_CLIENT_SECRET,
 					grant_type: "refresh_token",
 					refresh_token: refreshToken,
 				}),

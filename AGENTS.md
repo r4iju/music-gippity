@@ -24,5 +24,5 @@ servers and package scripts through `prun`, never directly on the Mac.
   libsql `file:` mode.
 - The `eval*` and `db:*` scripts call live APIs or the production database;
   run them only when the task asks for it.
-- Codex threads get no `.env` files: install, checks and tests work; a
-  production build or dev server needs a Claude thread.
+- The build runs without runtime credentials. Serving requests locally
+  requires the runtime variables listed in `.env.example`.

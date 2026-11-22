@@ -1,8 +1,8 @@
-import { env } from "~/env.mjs";
+import { getEnv } from "~/env.mjs";
 import type { Evidence, EvidenceSource, SourceStatus } from "~/lib/evidence";
 import { releaseYear } from "~/lib/resolution";
 import { hasLastfmKey, type LastfmTrack, trackInfo } from "../lastfm";
-import { musicbrainz, USER_AGENT } from "../musicbrainz";
+import { getMusicBrainzLimiter, USER_AGENT } from "../musicbrainz";
 
 /** What the sources are asked about: the resolved recording, not the pick. */
 export interface RecordingRef {
@@ -13,9 +13,6 @@ export interface RecordingRef {
 	durationMs: number | null;
 }
 
-// Each source answers within this deadline or counts as unknown, so a slow
-// source can only delay the repair stage, never block the playlist.
-const DEADLINE_MS = Number(env.EVIDENCE_DEADLINE_MS);
 // Facts about a recording do not change; cache them across playlists.
 const REVALIDATE_SECONDS = 60 * 60 * 24 * 30;
 
@@ -41,7 +38,11 @@ async function withDeadline<T>(
 	lookup: (signal: AbortSignal) => Promise<Answer<T>>,
 ): Promise<Answer<T>> {
 	const controller = new AbortController();
-	const timer = setTimeout(() => controller.abort(), DEADLINE_MS);
+	// Each source answers within this deadline or counts as unknown.
+	const timer = setTimeout(
+		() => controller.abort(),
+		Number(getEnv().EVIDENCE_DEADLINE_MS),
+	);
 	try {
 		return await Promise.race([
 			lookup(controller.signal),
@@ -68,7 +69,7 @@ interface MusicBrainzRecording {
 }
 
 const musicbrainzLookup = (ref: RecordingRef) =>
-	musicbrainz.run(() =>
+	getMusicBrainzLimiter().run(() =>
 		withDeadline<{
 			mbid: string;
 			firstReleaseYear: number | null;
