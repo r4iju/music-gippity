@@ -3,58 +3,70 @@ import { z } from "zod";
 
 const RUNTIME_ENV = typeof EdgeRuntime === "string" ? "edge" : "server";
 
-export const env = createEnv({
-	server: {
-		NODE_ENV: z.enum(["development", "test", "production"]),
-		NEXTAUTH_SECRET: z.string().min(1),
-		NEXTAUTH_URL: z.preprocess((str) => {
-			return process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : str;
-		}, z.url()),
-		SPOTIFY_CLIENT_ID: z.string().min(1),
-		SPOTIFY_CLIENT_SECRET: z.string().min(1),
-		// The country the eval searches in: its client-credentials token has
-		// no listener market. The app's searches use the listener's own.
-		EVAL_SPOTIFY_MARKET: z
-			.string()
-			.regex(/^[A-Z]{2}$/)
-			.default("US"),
-		OPENAI_ORGANIZATION_ID: z.string().min(1),
-		OPENAI_KEY: z.string().min(1),
-		GEMINI_API_KEY: z.string().min(1),
-		// Optional: without it the Last.fm tag and listener lookups are off.
-		LASTFM_API_KEY: z.string().min(1).optional(),
-		// Each evidence source answers within this or counts as unknown.
-		EVIDENCE_DEADLINE_MS: z.coerce.number().int().positive().default(2500),
-		// MusicBrainz allows one request per second per client.
-		MUSICBRAINZ_INTERVAL_MS: z.coerce
-			.number()
-			.int()
-			.nonnegative()
-			.default(1000),
-		RUNTIME_ENV: z.literal(RUNTIME_ENV),
-		TURSO_DATABASE_URL: z.url(),
-		TURSO_AUTH_TOKEN: z.string().min(1),
-	},
+const readEnv = () =>
+	createEnv({
+		server: {
+			NODE_ENV: z.enum(["development", "test", "production"]),
+			NEXTAUTH_SECRET: z.string().min(1),
+			NEXTAUTH_URL: z.preprocess((str) => {
+				return process.env.VERCEL_URL
+					? `https://${process.env.VERCEL_URL}`
+					: str;
+			}, z.url()),
+			SPOTIFY_CLIENT_ID: z.string().min(1),
+			SPOTIFY_CLIENT_SECRET: z.string().min(1),
+			// The country the eval searches in: its client-credentials token has
+			// no listener market. The app's searches use the listener's own.
+			EVAL_SPOTIFY_MARKET: z
+				.string()
+				.regex(/^[A-Z]{2}$/)
+				.default("US"),
+			OPENAI_ORGANIZATION_ID: z.string().min(1),
+			OPENAI_KEY: z.string().min(1),
+			GEMINI_API_KEY: z.string().min(1),
+			// Optional: without it the Last.fm tag and listener lookups are off.
+			LASTFM_API_KEY: z.string().min(1).optional(),
+			// Each evidence source answers within this or counts as unknown.
+			EVIDENCE_DEADLINE_MS: z.coerce.number().int().positive().default(2500),
+			// MusicBrainz allows one request per second per client.
+			MUSICBRAINZ_INTERVAL_MS: z.coerce
+				.number()
+				.int()
+				.nonnegative()
+				.default(1000),
+			RUNTIME_ENV: z.literal(RUNTIME_ENV),
+			TURSO_DATABASE_URL: z.url(),
+			TURSO_AUTH_TOKEN: z.string().min(1),
+		},
 
-	client: {},
+		client: {},
 
-	runtimeEnv: {
-		NODE_ENV: process.env.NODE_ENV,
-		NEXTAUTH_SECRET: process.env.NEXTAUTH_SECRET,
-		NEXTAUTH_URL: process.env.NEXTAUTH_URL,
-		SPOTIFY_CLIENT_ID: process.env.SPOTIFY_CLIENT_ID,
-		SPOTIFY_CLIENT_SECRET: process.env.SPOTIFY_CLIENT_SECRET,
-		EVAL_SPOTIFY_MARKET: process.env.EVAL_SPOTIFY_MARKET,
-		OPENAI_KEY: process.env.OPENAI_KEY,
-		OPENAI_ORGANIZATION_ID: process.env.OPENAI_ORGANIZATION_ID,
-		GEMINI_API_KEY: process.env.GEMINI_API_KEY,
-		LASTFM_API_KEY: process.env.LASTFM_API_KEY,
-		EVIDENCE_DEADLINE_MS: process.env.EVIDENCE_DEADLINE_MS,
-		MUSICBRAINZ_INTERVAL_MS: process.env.MUSICBRAINZ_INTERVAL_MS,
-		RUNTIME_ENV: RUNTIME_ENV,
-		TURSO_DATABASE_URL: process.env.TURSO_DATABASE_URL,
-		TURSO_AUTH_TOKEN: process.env.TURSO_AUTH_TOKEN,
-	},
+		runtimeEnv: {
+			NODE_ENV: process.env.NODE_ENV,
+			NEXTAUTH_SECRET: process.env.NEXTAUTH_SECRET,
+			NEXTAUTH_URL: process.env.NEXTAUTH_URL,
+			SPOTIFY_CLIENT_ID: process.env.SPOTIFY_CLIENT_ID,
+			SPOTIFY_CLIENT_SECRET: process.env.SPOTIFY_CLIENT_SECRET,
+			EVAL_SPOTIFY_MARKET: process.env.EVAL_SPOTIFY_MARKET,
+			OPENAI_KEY: process.env.OPENAI_KEY,
+			OPENAI_ORGANIZATION_ID: process.env.OPENAI_ORGANIZATION_ID,
+			GEMINI_API_KEY: process.env.GEMINI_API_KEY,
+			LASTFM_API_KEY: process.env.LASTFM_API_KEY,
+			EVIDENCE_DEADLINE_MS: process.env.EVIDENCE_DEADLINE_MS,
+			MUSICBRAINZ_INTERVAL_MS: process.env.MUSICBRAINZ_INTERVAL_MS,
+			RUNTIME_ENV: RUNTIME_ENV,
+			TURSO_DATABASE_URL: process.env.TURSO_DATABASE_URL,
+			TURSO_AUTH_TOKEN: process.env.TURSO_AUTH_TOKEN,
+		},
 
-	skipValidation: !!process.env.SKIP_ENV_VALIDATION,
-});
+		skipValidation: !!process.env.SKIP_ENV_VALIDATION,
+	});
+
+/** @type {ReturnType<typeof readEnv> | undefined} */
+let validatedEnv;
+
+// Delivery compiles the app before the server receives its runtime environment.
+export function getEnv() {
+	validatedEnv ??= readEnv();
+	return validatedEnv;
+}

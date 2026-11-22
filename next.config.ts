@@ -1,7 +1,5 @@
-import type { NextConfig } from "next";
-
-import "./src/env.mjs";
 import bundleAnalyzer from "@next/bundle-analyzer";
+import type { NextConfig } from "next";
 import { withWorkflow } from "workflow/next";
 
 const withBundleAnalyzer = bundleAnalyzer({

@@ -1,6 +1,6 @@
 import { GenerationNotificationSchema } from "~/lib/generation-notification";
 import { auth } from "~/server/auth";
-import { generation } from "~/server/generation/runtime";
+import { getGenerationModule } from "~/server/generation/runtime";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -11,14 +11,18 @@ export async function GET(
 	const session = await auth();
 	if (!session) return new Response("Unauthorized", { status: 401 });
 	const { id } = await context.params;
-	if (!(await generation.observe(session.user.id, id)))
+	if (!(await getGenerationModule().observe(session.user.id, id)))
 		return new Response("Not found", { status: 404 });
 	const requested = Number(
 		new URL(request.url).searchParams.get("cursor") ?? 0,
 	);
 	let cursor =
 		Number.isSafeInteger(requested) && requested >= 0 ? requested : 0;
-	const source = await generation.notifications(session.user.id, id, cursor);
+	const source = await getGenerationModule().notifications(
+		session.user.id,
+		id,
+		cursor,
+	);
 	if (!source) return new Response(null, { status: 204 });
 	const reader = source.getReader();
 	const encoder = new TextEncoder();

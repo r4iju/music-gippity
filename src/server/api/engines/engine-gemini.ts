@@ -1,10 +1,10 @@
 // src/server/api/engines/engine-gemini.ts
 import { z } from "zod";
-import { env } from "~/env.mjs";
+import { getEnv } from "~/env.mjs";
 import { ENGINES } from "~/lib/engines";
 import { extractJSONObject } from "~/server/api/stream-helpers";
 import { auth } from "~/server/auth";
-import { drizzle, schema } from "~/server/drizzle";
+import { getDrizzle, schema } from "~/server/drizzle";
 import { logger } from "~/utils";
 
 // Thinking is on, so Gemini bills thought tokens as output too; they are
@@ -51,13 +51,16 @@ async function logTokenUsage(raw: string, ownerId?: string) {
 		logger.error("No session found");
 		return;
 	}
-	await drizzle.insert(schema.llmTokenUsage).values({
-		userId,
-		engine: "gemini",
-		inputTokens: usage.promptTokenCount,
-		outputTokens: usage.candidatesTokenCount + (usage.thoughtsTokenCount ?? 0),
-		totalTokens: usage.totalTokenCount,
-	});
+	await getDrizzle()
+		.insert(schema.llmTokenUsage)
+		.values({
+			userId,
+			engine: "gemini",
+			inputTokens: usage.promptTokenCount,
+			outputTokens:
+				usage.candidatesTokenCount + (usage.thoughtsTokenCount ?? 0),
+			totalTokens: usage.totalTokenCount,
+		});
 }
 
 /**
@@ -140,7 +143,7 @@ export async function geminiEngine({
 			method: "POST",
 			headers: {
 				"Content-Type": "application/json",
-				"x-goog-api-key": env.GEMINI_API_KEY,
+				"x-goog-api-key": getEnv().GEMINI_API_KEY,
 			},
 			body: JSON.stringify(requestBody),
 		});

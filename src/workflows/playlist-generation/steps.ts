@@ -1,16 +1,16 @@
 import { getWorkflowMetadata } from "workflow";
 import { readGeneration } from "~/lib/playlist-generation";
 import { generatePlaylistStream } from "~/server/api/create-playlist";
-import { generations } from "~/server/generation/store";
+import { getGenerationRepository } from "~/server/generation/store";
 import { getSpotifyToken } from "~/server/spotify-token";
 
 export async function generatePlaylistStep(id: string) {
 	"use step";
 	const owner = getWorkflowMetadata().workflowRunId;
-	const row = await generations.claim(id, owner);
+	const row = await getGenerationRepository().claim(id, owner);
 	if (!row) {
 		// A redelivered paid step cannot safely replay a half-generated playlist.
-		await generations.fail(
+		await getGenerationRepository().fail(
 			id,
 			owner,
 			"The worker was interrupted. Your saved tracks are available; generate again to start a new playlist.",
@@ -26,7 +26,7 @@ export async function generatePlaylistStep(id: string) {
 	let stopped = false;
 	const checkCancellation = async () => {
 		try {
-			const current = await generations.workerRow(id);
+			const current = await getGenerationRepository().workerRow(id);
 			if (!current || current.finishedAt !== null || current.workerId !== owner)
 				cancellation.abort();
 		} catch {
@@ -49,7 +49,7 @@ export async function generatePlaylistStep(id: string) {
 			playlistId: id,
 		});
 		await readGeneration(response, signal, async (line) => {
-			await generations.append(id, owner, line);
+			await getGenerationRepository().append(id, owner, line);
 		});
 	} finally {
 		stopped = true;
@@ -62,7 +62,7 @@ generatePlaylistStep.maxRetries = 0;
 
 export async function failGenerationStep(id: string) {
 	"use step";
-	await generations.fail(
+	await getGenerationRepository().fail(
 		id,
 		getWorkflowMetadata().workflowRunId,
 		"Generation could not finish. Your saved tracks are available; generate again to start a new playlist.",

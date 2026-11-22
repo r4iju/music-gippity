@@ -1,7 +1,7 @@
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { z } from "zod";
-import { env } from "~/env.mjs";
+import { getEnv } from "~/env.mjs";
 import type { Listener } from "~/server/api/listener";
 
 const RecordingSchema = z.object({
@@ -43,7 +43,7 @@ export const fixtureListener = (
  */
 export async function loadListener(
 	file = SNAPSHOT_PATH,
-	market = env.EVAL_SPOTIFY_MARKET,
+	market = getEnv().EVAL_SPOTIFY_MARKET,
 ): Promise<Listener> {
 	let raw: string;
 	try {

@@ -3,7 +3,7 @@ import { PlaylistFormSchema } from "~/app/dashboard/create-playlist/playlist-for
 import type { GenerationSnapshot } from "~/lib/generation-snapshot";
 import { auth } from "~/server/auth";
 import { GenerationConflictError } from "~/server/generation/repository";
-import { generation } from "~/server/generation/runtime";
+import { getGenerationModule } from "~/server/generation/runtime";
 
 export const runtime = "nodejs";
 const CreateSchema = z.object({
@@ -17,7 +17,7 @@ export async function POST(request: Request) {
 	if (!parsed.success) return new Response("Invalid request", { status: 400 });
 	let snapshot: GenerationSnapshot;
 	try {
-		snapshot = await generation.create(
+		snapshot = await getGenerationModule().create(
 			session.user.id,
 			parsed.data.id,
 			parsed.data.request,
@@ -36,7 +36,7 @@ export async function POST(request: Request) {
 export async function GET() {
 	const session = await auth();
 	if (!session) return new Response("Unauthorized", { status: 401 });
-	return Response.json(await generation.history(session.user.id), {
+	return Response.json(await getGenerationModule().history(session.user.id), {
 		headers: { "Cache-Control": "no-store" },
 	});
 }

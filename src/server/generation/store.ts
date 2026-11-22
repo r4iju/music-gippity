@@ -1,7 +1,17 @@
-import { drizzle } from "~/server/drizzle";
+import { getDrizzle } from "~/server/drizzle";
 import { notifyCommitted } from "./notifications";
 import { GenerationRepository } from "./repository";
 import { RunRepository } from "./run-repository";
 
-export const generations = new GenerationRepository(drizzle);
-export const generationRuns = new RunRepository(drizzle, notifyCommitted);
+let generations: GenerationRepository | undefined;
+let generationRuns: RunRepository | undefined;
+
+export function getGenerationRepository() {
+	generations ??= new GenerationRepository(getDrizzle());
+	return generations;
+}
+
+export function getRunRepository() {
+	generationRuns ??= new RunRepository(getDrizzle(), notifyCommitted);
+	return generationRuns;
+}

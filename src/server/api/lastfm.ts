@@ -1,4 +1,4 @@
-import { env } from "~/env.mjs";
+import { getEnv } from "~/env.mjs";
 import { baseTitle } from "~/lib/resolution";
 import { USER_AGENT } from "./musicbrainz";
 
@@ -48,7 +48,7 @@ export class LastfmError extends Error {
 	}
 }
 
-export const hasLastfmKey = (): boolean => Boolean(env.LASTFM_API_KEY);
+export const hasLastfmKey = (): boolean => Boolean(getEnv().LASTFM_API_KEY);
 
 /** A list call Last.fm answers "not found" to, as an empty list. */
 const orNone = <T>(error: unknown): T[] => {
@@ -61,7 +61,7 @@ async function call<T>(
 	params: Record<string, string>,
 	{ signal, queued = false }: CallOptions = {},
 ): Promise<T> {
-	const key = env.LASTFM_API_KEY;
+	const key = getEnv().LASTFM_API_KEY;
 	if (!key) throw new LastfmError(null, "LASTFM_API_KEY is not set");
 	const request = async () => {
 		signal?.throwIfAborted();

@@ -3,7 +3,7 @@
  */
 import { eq } from "drizzle-orm";
 import type { ServerRuntime } from "next";
-import { drizzle, schema } from "~/server/drizzle";
+import { getDrizzle, schema } from "~/server/drizzle";
 import { logger } from "~/utils";
 
 export const runtime = "edge" satisfies ServerRuntime;
@@ -25,7 +25,7 @@ export async function edgeMiddleware(request: Request) {
 		return Response.redirect(redirectUrl);
 	}
 
-	const res = await drizzle
+	const res = await getDrizzle()
 		.select()
 		.from(schema.sessions)
 		.leftJoin(schema.users, eq(schema.sessions.userId, schema.users.id))

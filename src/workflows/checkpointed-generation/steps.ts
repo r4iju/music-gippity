@@ -30,7 +30,7 @@ import {
 	executeStage as executeCheckpoint,
 	StageBusyError,
 } from "~/server/generation/stage";
-import { generationRuns } from "~/server/generation/store";
+import { getRunRepository } from "~/server/generation/store";
 import { getSpotifyToken } from "~/server/spotify-token";
 
 function executeStage<T>(...args: Parameters<typeof executeCheckpoint<T>>) {
@@ -39,7 +39,7 @@ function executeStage<T>(...args: Parameters<typeof executeCheckpoint<T>>) {
 
 async function active(id: string) {
 	const owner = getWorkflowMetadata().workflowRunId;
-	const row = await generationRuns.claim(id, owner);
+	const row = await getRunRepository().claim(id, owner);
 	if (!row?.playlist.contents.request)
 		throw new FatalError("Generation is no longer active");
 	return { owner, row, request: row.playlist.contents.request };
@@ -56,7 +56,7 @@ export async function interpretIntentStep(id: string) {
 	"use step";
 	const { owner, row, request } = await active(id);
 	try {
-		return await executeStage(generationRuns, id, owner, {
+		return await executeStage(getRunRepository(), id, owner, {
 			phase: "intent",
 			paid: true,
 			schema: IntentSchema.nullable(),
@@ -79,7 +79,7 @@ export async function retrieveCandidatesStep(
 	const { owner, row, request } = await active(id);
 	let spotifyToken = "";
 	try {
-		return await executeStage(generationRuns, id, owner, {
+		return await executeStage(getRunRepository(), id, owner, {
 			phase: "retrieval",
 			paid: true,
 			schema: ResearchSchema,
@@ -106,7 +106,7 @@ export async function curatePicksStep(id: string, research: Research) {
 	"use step";
 	const { owner, row, request } = await active(id);
 	try {
-		return await executeStage(generationRuns, id, owner, {
+		return await executeStage(getRunRepository(), id, owner, {
 			phase: "curation",
 			paid: true,
 			schema: CuratedSchema,
@@ -136,7 +136,7 @@ export async function resolveRecordingsStep(
 	const { owner, row, request } = await active(id);
 	let token = "";
 	try {
-		return await executeStage(generationRuns, id, owner, {
+		return await executeStage(getRunRepository(), id, owner, {
 			phase: "resolution",
 			paid: false,
 			schema: ResolvedSchema,
@@ -151,7 +151,7 @@ export async function resolveRecordingsStep(
 					token,
 					signal,
 					(line) =>
-						generationRuns.append(
+						getRunRepository().append(
 							id,
 							owner,
 							line.kind === "song" ? annotateRecording(line, research) : line,
@@ -175,7 +175,7 @@ export async function checkEvidenceStep(
 	"use step";
 	const { owner, row, request } = await active(id);
 	try {
-		return await executeStage(generationRuns, id, owner, {
+		return await executeStage(getRunRepository(), id, owner, {
 			phase: "checking",
 			paid: false,
 			schema: CheckedSchema,
@@ -187,7 +187,7 @@ export async function checkEvidenceStep(
 					row.run.userId,
 					signal,
 					(line) =>
-						generationRuns.append(id, owner, line, {
+						getRunRepository().append(id, owner, line, {
 							phase: "checking",
 							attempt,
 						}),
@@ -207,7 +207,7 @@ export async function repairRecordingsStep(
 	const { owner, row, request } = await active(id);
 	let token = "";
 	try {
-		return await executeStage(generationRuns, id, owner, {
+		return await executeStage(getRunRepository(), id, owner, {
 			phase: "repair",
 			paid: true,
 			schema: CheckedSchema,
@@ -224,7 +224,7 @@ export async function repairRecordingsStep(
 					token,
 					signal,
 					(line) =>
-						generationRuns.append(id, owner, line, {
+						getRunRepository().append(id, owner, line, {
 							phase: "repair",
 							attempt,
 						}),
@@ -243,7 +243,7 @@ export async function rerankRecordingsStep(
 	"use step";
 	const { owner, row, request } = await active(id);
 	try {
-		return await executeStage(generationRuns, id, owner, {
+		return await executeStage(getRunRepository(), id, owner, {
 			phase: "rerank",
 			paid: true,
 			schema: CheckedSchema,
@@ -255,7 +255,7 @@ export async function rerankRecordingsStep(
 					row.run.userId,
 					signal,
 					(line) =>
-						generationRuns.append(id, owner, line, {
+						getRunRepository().append(id, owner, line, {
 							phase: "rerank",
 							attempt,
 						}),
@@ -269,7 +269,7 @@ export async function rerankRecordingsStep(
 export async function finalizePlaylistStep(id: string) {
 	"use step";
 	await withNotifications(
-		() => generationRuns.finalize(id, getWorkflowMetadata().workflowRunId),
+		() => getRunRepository().finalize(id, getWorkflowMetadata().workflowRunId),
 		true,
 	);
 }
@@ -278,7 +278,7 @@ export async function recordFailureStep(id: string) {
 	"use step";
 	await withNotifications(
 		() =>
-			generationRuns.fail(id, getWorkflowMetadata().workflowRunId, {
+			getRunRepository().fail(id, getWorkflowMetadata().workflowRunId, {
 				code: "unavailable",
 				message:
 					"Generation could not finish. Your saved recordings are available; generate another playlist to try again.",

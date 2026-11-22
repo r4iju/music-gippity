@@ -3,7 +3,7 @@ import { artistKey } from "~/lib/caps";
 import type { Familiarity, NoveltyEvent } from "~/lib/playlist-stream";
 import type { Listener } from "~/server/api/listener";
 import { type KnownRecording, SpotifyApiError } from "~/server/api/spotify";
-import { drizzle, op, schema } from "~/server/drizzle";
+import { getDrizzle, op, schema } from "~/server/drizzle";
 
 /** What the listener already knows: recording keys (Spotify ids and ISRCs) and artists by key. */
 export interface KnownSet {
@@ -21,7 +21,7 @@ const APP_SONGS_CAP = 1000;
  * grows with each insert.
  */
 async function appRecordings(userId: string): Promise<KnownRecording[]> {
-	const rows = await drizzle
+	const rows = await getDrizzle()
 		.select({ songId: schema.songs.songId, artist: schema.songs.artist })
 		.from(schema.songs)
 		.innerJoin(

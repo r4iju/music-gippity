@@ -6,13 +6,13 @@ Object.assign(process.env, { NODE_ENV: "test" });
 // validation, whose defaults set the real evidence pacing, and leave an
 // absent Last.fm key off.
 if (!process.env.LIVE_EVAL) {
-	// The env schema is validated at import time; tests run without a real .env.
+	// Tests run without a real .env.
 	process.env.SKIP_ENV_VALIDATION = "1";
 	process.env.OPENAI_KEY ??= "test-openai-key";
 	process.env.OPENAI_ORGANIZATION_ID ??= "test-openai-org";
 	process.env.GEMINI_API_KEY ??= "test-gemini-key";
 	process.env.LASTFM_API_KEY ??= "test-lastfm-key";
-	// Evidence settings are read at load time: no MusicBrainz pacing, and a
+	// Use no MusicBrainz pacing and a
 	// deadline short enough for a test to overrun on purpose.
 	process.env.MUSICBRAINZ_INTERVAL_MS = "0";
 	process.env.EVIDENCE_DEADLINE_MS = "200";
@@ -45,7 +45,7 @@ mock.module("~/server/auth", () => ({
 }));
 
 mock.module("~/server/drizzle", () => ({
-	drizzle: {
+	getDrizzle: () => ({
 		select: () => ({
 			from: () => ({
 				innerJoin: () => ({
@@ -66,7 +66,7 @@ mock.module("~/server/drizzle", () => ({
 				tokenUsageInserts.push(row);
 			},
 		}),
-	},
+	}),
 	schema: {
 		llmTokenUsage: {},
 		songs: {
